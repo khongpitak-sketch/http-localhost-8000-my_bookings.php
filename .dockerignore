@@ -1,0 +1,5 @@
+﻿.git
+.gitignore
+.vscode
+*.log
+start_system.bat

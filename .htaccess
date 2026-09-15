@@ -1,0 +1,11 @@
+﻿# ป้องกันการเข้าถึงไฟล์ฐานข้อมูล SQLite และไฟล์สำคัญ
+<FilesMatch "\.(sqlite|sqlite3|db|sql|log|bat|env)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# ปิด Directory Browsing
+Options -Indexes
+
+# ตั้งค่า Character Encoding
+AddDefaultCharset UTF-8

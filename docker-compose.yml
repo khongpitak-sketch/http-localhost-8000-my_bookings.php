@@ -1,0 +1,11 @@
+﻿version: '3.8'
+
+services:
+  van-booking:
+    build: .
+    container_name: van_booking_app
+    ports:
+      - "8080:80"
+    volumes:
+      - ./data:/var/www/html/data
+    restart: unless-stopped
