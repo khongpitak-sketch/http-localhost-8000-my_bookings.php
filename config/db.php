@@ -2,12 +2,25 @@
 // config/db.php - การตั้งค่าและเชื่อมต่อฐานข้อมูล
 date_default_timezone_set('Asia/Bangkok');
 
-$dbDir = __DIR__ . '/../data';
-if (!file_exists($dbDir)) {
-    mkdir($dbDir, 0777, true);
+// ตรวจสอบสภาพแวดล้อม Vercel Serverless
+$isVercel = (getenv('VERCEL') || isset($_ENV['VERCEL']) || isset($_SERVER['VERCEL']));
+if ($isVercel) {
+    $dbDir = '/tmp/data';
+    if (!file_exists($dbDir)) {
+        @mkdir($dbDir, 0777, true);
+    }
+    $dbPath = $dbDir . '/van_booking.sqlite';
+    $sourceDb = __DIR__ . '/../data/van_booking.sqlite';
+    if (!file_exists($dbPath) && file_exists($sourceDb)) {
+        @copy($sourceDb, $dbPath);
+    }
+} else {
+    $dbDir = __DIR__ . '/../data';
+    if (!file_exists($dbDir)) {
+        @mkdir($dbDir, 0777, true);
+    }
+    $dbPath = $dbDir . '/van_booking.sqlite';
 }
-
-$dbPath = $dbDir . '/van_booking.sqlite';
 
 try {
     $pdo = new PDO("sqlite:" . $dbPath);

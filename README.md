@@ -18,7 +18,7 @@
 4. **ระบบความปลอดภัยและการจัดเก็บข้อมูล**:
    - ฐานข้อมูล SQLite น้ำหนักเบา ไม่ต้องติดตั้ง Database Server เพิ่มเติม
    - มีไฟล์ `.htaccess` ป้องกันการเข้าถึงฐานข้อมูลจากภายนอก
-   - รหัสผ่านเข้ารหัสด้วย `password_hash()` มาตรฐานความปลอดภัย
+   - รองรับทั้ง Localhost, Docker และ Serverless Cloud (Vercel)
 
 ---
 
@@ -31,29 +31,23 @@
 
 ---
 
-## 🚀 การติดตั้งและเปิดใช้งานในเครื่อง (Localhost)
+## 🚀 วิธี Deploy ขึ้น Vercel (ขั้นตอนง่ายๆ)
 
-### วิธีที่ 1: ดับเบิลคลิกไฟล์เดียว (Windows)
-1. ดับเบิลคลิกที่ไฟล์ **`start_system.bat`**
-2. ระบบจะเปิดเว็บเบราว์เซอร์ไปที่ `http://localhost:8000` ให้อัตโนมัติ
+ระบบถูกตั้งค่าไฟล์ `vercel.json` และ `api/index.php` ให้รองรับการ Deploy บน Vercel เรียบร้อยแล้ว:
 
-### วิธีที่ 2: รันผ่าน PHP CLI
-```bash
-php -S localhost:8000
-```
-แล้วเปิดเบราว์เซอร์ไปที่ `http://localhost:8000`
-
-### วิธีที่ 3: รันด้วย Docker Compose
-```bash
-docker-compose up -d
-```
-เข้าใช้งานได้ที่ `http://localhost:8080`
+1. นำโค้ดขึ้น **GitHub** ของคุณ (ดูวิธีในหัวข้อถัดไป)
+2. ไปที่เว็บไซต์ **[Vercel.com](https://vercel.com/)** แล้วเข้าสู่ระบบด้วยบัญชี GitHub
+3. คลิกปุ่ม **Add New...** ➔ เลือก **Project**
+4. เลือก GitHub Repository ของโครงการนี้ แล้วคลิก **Import**
+5. ในหน้าตั้งค่าโปรเจกต์ (Configure Project):
+   - **Framework Preset**: เลือก `Other`
+   - ไม่ต้องแก้ไข Root Directory หรือ Build Command (ระบบจะอ่านค่าจาก `vercel.json` อัตโนมัติ)
+6. คลิกปุ่ม **Deploy**
+7. รอระบบประมวลผลประมาณ 1 นาที คุณจะได้ URL เว็บไซต์จริง (เช่น `https://your-project.vercel.app`) ใช้งานได้ทันที!
 
 ---
 
-## 🌐 การนำขึ้น GitHub และการ Deploy ขึ้น Cloud
-
-### 1. วิธีนำโค้ดขึ้น GitHub (Push to GitHub)
+## 🌐 วิธีนำโค้ดขึ้น GitHub (Push to GitHub)
 
 1. ไปที่เว็บไซต์ [GitHub](https://github.com/) แล้วสร้าง Repository ใหม่ (เช่น ชื่อ `pnu-van-booking`)
 2. คัดลอก URL ของ Repository (เช่น `https://github.com/YOUR_USERNAME/pnu-van-booking.git`)
@@ -66,33 +60,19 @@ git push -u origin main
 
 ---
 
-### 2. วิธี Deploy ใช้งานจริง (ฟรี & สะดวก)
+## 💻 การเปิดใช้งานในเครื่อง (Localhost)
 
-#### ตัวเลือกที่ 1: Deploy บน Render (แนะนำ - ฟรี & รองรับ Docker)
-1. สมัครสมาชิกที่ [Render.com](https://render.com/)
-2. คลิก **New +** -> เลือก **Web Service**
-3. เชื่อมต่อกับ GitHub Repository ที่เราเพิ่ง Push ขึ้นไป
-4. ตั้งค่าดังนี้:
-   - **Environment**: `Docker`
-   - **Branch**: `main`
-   - **Plan**: `Free`
-5. คลิก **Create Web Service** ระบบจะ Build และให้ URL เว็บไซต์พร้อมใช้งานทันที (เช่น `https://pnu-van-booking.onrender.com`)
-
-#### ตัวเลือกที่ 2: Deploy บน Railway
-1. สมัครสมาชิกที่ [Railway.app](https://railway.app/)
-2. คลิก **New Project** -> เลือก **Deploy from GitHub repo**
-3. เลือก Repository ของคุณ Railway จะตรวจพบ `Dockerfile` และ Deploy ให้อัตโนมัติ
-
-#### ตัวเลือกที่ 3: Deploy บนเว็บโฮสติ้งทั่วไป (Shared Hosting / cPanel)
-1. อัปโหลดไฟล์ทั้งหมดขึ้นโฟลเดอร์ `public_html`
-2. ตรวจสอบว่าเปิดใช้งาน PHP Extension `pdo_sqlite` ใน cPanel
-3. ตั้งค่าสิทธิ์โฟลเดอร์ `data/` ให้เป็น `775` หรือ `777` เพื่อให้เขียนฐานข้อมูลได้
+- **วิธีที่ 1 (ง่ายที่สุด)**: ดับเบิลคลิกไฟล์ **`start_system.bat`** ระบบจะเปิดเบราว์เซอร์ไปยัง `http://localhost:8000` ให้อัตโนมัติ
+- **วิธีที่ 2**: รันคำสั่ง `php -S localhost:8000` ใน Terminal
+- **วิธีที่ 3 (Docker)**: รัน `docker-compose up -d` เข้าใช้งานที่ `http://localhost:8080`
 
 ---
 
 ## 📁 โครงสร้างโฟลเดอร์
 
 ```text
+├── api/                # Router สำหรับ Vercel Serverless Function
+├── vercel.json         # การตั้งค่า Deploy บน Vercel
 ├── config/             # ตั้งค่าระบบและการเชื่อมต่อฐานข้อมูล SQLite
 ├── data/               # โฟลเดอร์เก็บฐานข้อมูล SQLite
 ├── assets/             # รูปภาพและตราสัญลักษณ์มหาวิทยาลัยนราธิวาสราชนครินทร์
@@ -106,8 +86,6 @@ git push -u origin main
 ├── admin.php           # แผงควบคุมระบบสำหรับ Admin
 ├── login.php           # หน้าเข้าสู่ระบบสำหรับ Admin
 ├── logout.php          # ออกจากระบบ
-├── Dockerfile          # สำหรับ Deploy บน Cloud (Render, Railway, Fly.io)
-├── docker-compose.yml  # รันผ่าน Docker Local
-├── .htaccess           # ป้องกันการดาวน์โหลดไฟล์ฐานข้อมูล
+├── Dockerfile          # สำหรับ Deploy ผ่าน Docker / Cloud อื่นๆ
 └── README.md           # คู่มือการใช้งานระบบ
 ```
