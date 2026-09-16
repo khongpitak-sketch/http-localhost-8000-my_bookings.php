@@ -1,8 +1,13 @@
 <?php
 // api/index.php - Vercel Serverless Entry Point & Router
+ini_set('display_errors', '1');
+ini_set('display_startup_errors', '1');
+error_reporting(E_ALL);
 
 $rootDir = realpath(__DIR__ . '/..');
-chdir($rootDir);
+if ($rootDir) {
+    chdir($rootDir);
+}
 
 $requestUri = $_SERVER['REQUEST_URI'] ?? '/';
 $path = parse_url($requestUri, PHP_URL_PATH);
@@ -14,7 +19,7 @@ if ($path === '' || $path === 'index.php') {
     exit;
 }
 
-// 2. Direct match for PHP files (e.g. book.php, login.php, my_bookings.php)
+// 2. Direct match for PHP files
 $targetFile = $rootDir . '/' . $path;
 if (is_file($targetFile) && pathinfo($targetFile, PATHINFO_EXTENSION) === 'php') {
     require $targetFile;
@@ -27,7 +32,7 @@ if (is_file($targetFile . '.php')) {
     exit;
 }
 
-// 4. Static assets fallback (css, js, images)
+// 4. Static assets fallback
 if (is_file($targetFile)) {
     $ext = strtolower(pathinfo($targetFile, PATHINFO_EXTENSION));
     $mimes = [
@@ -52,4 +57,4 @@ if (is_file($targetFile)) {
 
 // 404 Fallback
 http_response_code(404);
-echo "404 Not Found";
+echo "404 Not Found: " . htmlspecialchars($path);
