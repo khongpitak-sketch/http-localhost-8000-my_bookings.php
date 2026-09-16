@@ -19,23 +19,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $stmt = $pdo->prepare("UPDATE bookings SET status = ? WHERE id = ?");
         $stmt->execute([$newStatus, $bookingId]);
 
-        // หากตั้งเป็น completed ให้อัปเดตสถานะใน approvals ด้วย
-        if ($newStatus === 'completed') {
+        // หากตั้งเป็น approved หรือ completed ให้อัปเดตสถานะใน approvals ด้วย
+        if ($newStatus === 'approved' || $newStatus === 'completed') {
             $pdo->prepare("
                 UPDATE approvals SET 
                     facility_status = COALESCE(facility_status, 'approved'),
                     facility_signer = COALESCE(facility_signer, 'นายเอกสิทธิ์ คงพิทักษ์'),
-                    facility_signed_at = COALESCE(facility_signed_at, datetime('now')),
-                    office_status = COALESCE(office_status, 'approved'),
+                    facility_fuel = COALESCE(facility_fuel, 1),
+                    facility_allowance = COALESCE(facility_allowance, 1),
                     office_driver_assigned = COALESCE(office_driver_assigned, 'นายธเนศ อินเอิบ'),
-                    office_signer = COALESCE(office_signer, 'นางซูไบดะห์ หะยีมะ'),
-                    office_signed_at = COALESCE(office_signed_at, datetime('now')),
-                    dean_status = COALESCE(dean_status, 'approved'),
-                    dean_signer = COALESCE(dean_signer, 'ผู้ช่วยศาสตราจารย์ ดร.บงกช กมลเปรม'),
-                    dean_signed_at = COALESCE(dean_signed_at, datetime('now')),
-                    driver_ack_status = COALESCE(driver_ack_status, 'acknowledged'),
-                    driver_signer = COALESCE(driver_signer, 'นายธเนศ อินเอิบ'),
-                    driver_acknowledged_at = COALESCE(driver_acknowledged_at, datetime('now'))
+                    facility_signed_at = COALESCE(facility_signed_at, datetime('now'))
                 WHERE booking_id = ?
             ")->execute([$bookingId]);
         }
@@ -109,6 +102,7 @@ $stats = [
     'pending_office' => $pdo->query("SELECT COUNT(*) FROM bookings WHERE status = 'pending_office'")->fetchColumn(),
     'pending_dean' => $pdo->query("SELECT COUNT(*) FROM bookings WHERE status = 'pending_dean'")->fetchColumn(),
     'pending_driver' => $pdo->query("SELECT COUNT(*) FROM bookings WHERE status = 'pending_driver'")->fetchColumn(),
+    'approved' => $pdo->query("SELECT COUNT(*) FROM bookings WHERE status IN ('approved', 'completed', 'pending_office', 'pending_dean', 'pending_driver')")->fetchColumn(),
     'completed' => $pdo->query("SELECT COUNT(*) FROM bookings WHERE status = 'completed'")->fetchColumn(),
     'rejected' => $pdo->query("SELECT COUNT(*) FROM bookings WHERE status = 'rejected'")->fetchColumn(),
     'cancelled' => $pdo->query("SELECT COUNT(*) FROM bookings WHERE status = 'cancelled'")->fetchColumn(),
@@ -177,16 +171,23 @@ require_once __DIR__ . '/includes/header.php';
         <div class="card card-custom p-3 border-start border-4 border-primary">
             <div class="text-muted small">คำขอทั้งหมด</div>
             <div class="fs-3 fw-bold text-primary"><?= $stats['total'] ?></div>
-            <div class="small text-success mt-1"><i class="fas fa-check-circle me-1"></i>อนุมัติแล้ว: <?= $stats['completed'] ?> รายการ</div>
+            <div class="small text-muted mt-1"><i class="fas fa-list me-1"></i>รายการคำขอในระบบ</div>
         </div>
     </div>
     <div class="col-md-3 col-sm-6">
         <div class="card card-custom p-3 border-start border-4 border-warning">
-            <div class="text-muted small">รอพิจารณา (ทุกขั้นตอน)</div>
+            <div class="text-muted small">รอหัวหน้าอาคารสถานที่พิจารณา</div>
             <div class="fs-3 fw-bold text-warning">
-                <?= $stats['pending_facility'] + $stats['pending_office'] + $stats['pending_dean'] + $stats['pending_driver'] ?>
+                <?= $stats['pending_facility'] ?>
             </div>
-            <div class="small text-muted mt-1">อาคาร: <?= $stats['pending_facility'] ?> | หน.สนง: <?= $stats['pending_office'] ?> | คณบดี: <?= $stats['pending_dean'] ?></div>
+            <div class="small text-muted mt-1"><i class="fas fa-clock me-1"></i>ขั้นตอนเดียวในระบบ</div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6">
+        <div class="card card-custom p-3 border-start border-4 border-success">
+            <div class="text-muted small">เห็นชอบแล้ว (พร้อมพิมพ์)</div>
+            <div class="fs-3 fw-bold text-success"><?= $stats['approved'] ?></div>
+            <div class="small text-muted mt-1"><i class="fas fa-print me-1"></i>พิมพ์เสนอลงนามต่อ</div>
         </div>
     </div>
     <div class="col-md-3 col-sm-6">
@@ -194,13 +195,6 @@ require_once __DIR__ . '/includes/header.php';
             <div class="text-muted small">ยานพาหนะส่วนกลาง</div>
             <div class="fs-3 fw-bold text-info"><?= $stats['active_vehicles'] ?> / <?= $stats['total_vehicles'] ?> คัน</div>
             <div class="small text-muted mt-1"><i class="fas fa-circle text-success me-1"></i>พร้อมบริการ: <?= $stats['active_vehicles'] ?> คัน</div>
-        </div>
-    </div>
-    <div class="col-md-3 col-sm-6">
-        <div class="card card-custom p-3 border-start border-4 border-success">
-            <div class="text-muted small">ผู้ใช้งานในระบบ</div>
-            <div class="fs-3 fw-bold text-success"><?= $stats['total_users'] ?> คน</div>
-            <div class="small text-muted mt-1"><i class="fas fa-users-cog me-1"></i>ครอบคลุมทุกบทบาท</div>
         </div>
     </div>
 </div>
@@ -303,8 +297,8 @@ require_once __DIR__ . '/includes/header.php';
                                                     <form method="POST">
                                                         <input type="hidden" name="action" value="change_booking_status">
                                                         <input type="hidden" name="booking_id" value="<?= $b['id'] ?>">
-                                                        <input type="hidden" name="new_status" value="completed">
-                                                        <button type="submit" class="dropdown-item text-success"><i class="fas fa-check-circle me-1"></i> อนุมัติเสร็จสมบูรณ์ทันที</button>
+                                                        <input type="hidden" name="new_status" value="approved">
+                                                        <button type="submit" class="dropdown-item text-success"><i class="fas fa-check-circle me-1"></i> เห็นชอบ (พร้อมพิมพ์เสนอต่อ)</button>
                                                     </form>
                                                 </li>
                                                 <li>
@@ -312,7 +306,7 @@ require_once __DIR__ . '/includes/header.php';
                                                         <input type="hidden" name="action" value="change_booking_status">
                                                         <input type="hidden" name="booking_id" value="<?= $b['id'] ?>">
                                                         <input type="hidden" name="new_status" value="pending_facility">
-                                                        <button type="submit" class="dropdown-item"><i class="fas fa-undo me-1"></i> รีเซ็ตกลับไปรออาคารสถานที่</button>
+                                                        <button type="submit" class="dropdown-item"><i class="fas fa-undo me-1"></i> รอหัวหน้าอาคารสถานที่พิจารณา</button>
                                                     </form>
                                                 </li>
                                                 <li>
@@ -320,7 +314,7 @@ require_once __DIR__ . '/includes/header.php';
                                                         <input type="hidden" name="action" value="change_booking_status">
                                                         <input type="hidden" name="booking_id" value="<?= $b['id'] ?>">
                                                         <input type="hidden" name="new_status" value="rejected">
-                                                        <button type="submit" class="dropdown-item text-danger"><i class="fas fa-times-circle me-1"></i> ไม่อนุมัติ</button>
+                                                        <button type="submit" class="dropdown-item text-danger"><i class="fas fa-times-circle me-1"></i> ไม่เห็นชอบ / ไม่อนุมัติ</button>
                                                     </form>
                                                 </li>
                                                 <li><hr class="dropdown-divider"></li>

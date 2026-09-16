@@ -249,20 +249,18 @@ function thaiDateShort($date) {
 function getStatusBadge($status) {
     switch ($status) {
         case 'pending_facility':
-            return '<span class="badge bg-warning text-dark"><i class="fas fa-hourglass-half me-1"></i> 1. รอหน.งานอาคารสถานที่</span>';
-        case 'pending_office':
-            return '<span class="badge bg-info text-dark"><i class="fas fa-clock me-1"></i> 2. รอหน.สำนักงานคณบดี</span>';
-        case 'pending_dean':
-            return '<span class="badge bg-primary"><i class="fas fa-stamp me-1"></i> 3. รอคณบดีพิจารณา</span>';
-        case 'pending_driver':
-            return '<span class="badge bg-secondary"><i class="fas fa-user-clock me-1"></i> 4. รอคนขับรับทราบ</span>';
+            return '<span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i> รอหัวหน้าอาคารสถานที่พิจารณา</span>';
+        case 'approved':
         case 'completed':
-            return '<span class="badge bg-success"><i class="fas fa-check-circle me-1"></i> อนุมัติเสร็จสมบูรณ์</span>';
+        case 'pending_office':
+        case 'pending_dean':
+        case 'pending_driver':
+            return '<span class="badge bg-success"><i class="fas fa-check-circle me-1"></i> เห็นชอบแล้ว (พร้อมพิมพ์เสนอต่อ)</span>';
         case 'rejected':
-            return '<span class="badge bg-danger"><i class="fas fa-times-circle me-1"></i> ไม่อนุมัติ</span>';
+            return '<span class="badge bg-danger"><i class="fas fa-times-circle me-1"></i> ไม่เห็นชอบ</span>';
         case 'cancelled':
             return '<span class="badge bg-dark"><i class="fas fa-ban me-1"></i> ยกเลิก</span>';
         default:
-            return '<span class="badge bg-secondary">ไม่ระบุ</span>';
+            return '<span class="badge bg-secondary">' . htmlspecialchars($status) . '</span>';
     }
 }

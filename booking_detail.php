@@ -33,87 +33,37 @@ $actionMessage = '';
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action_type']) && $isAdmin) {
     $actionType = $_POST['action_type'];
     
-    // 1. หัวหน้างานอาคารสถานที่
-    if ($actionType === 'facility' && in_array($currentUser['role'], ['facility_head', 'admin'])) {
+    // 1. หัวหน้างานอาคารสถานที่ (ขั้นตอนเดียวในระบบออนไลน์ จากนั้นพิมพ์เสนอต่อ)
+    if ($actionType === 'facility') {
         $facility_status = $_POST['facility_status'] ?? 'approved';
         $facility_fuel = isset($_POST['facility_fuel']) ? 1 : 0;
         $facility_allowance = isset($_POST['facility_allowance']) ? 1 : 0;
         $facility_other = trim($_POST['facility_other'] ?? '');
         $facility_comment = trim($_POST['facility_comment'] ?? '');
-        $facility_signer = $currentUser['fullname'];
+        $office_driver_assigned = trim($_POST['office_driver_assigned'] ?? 'นายธเนศ อินเอิบ');
+        $facility_signer = $currentUser['fullname'] ?? 'นายเอกสิทธิ์ คงพิทักษ์';
 
-        $newBookingStatus = ($facility_status === 'approved') ? 'pending_office' : 'rejected';
+        $newBookingStatus = ($facility_status === 'approved') ? 'approved' : 'rejected';
 
         $pdo->prepare("
             UPDATE approvals SET 
                 facility_status = ?, facility_fuel = ?, facility_allowance = ?, 
                 facility_other = ?, facility_signer = ?, facility_comment = ?, 
+                office_driver_assigned = ?,
                 facility_signed_at = datetime('now') 
             WHERE booking_id = ?
-        ")->execute([$facility_status, $facility_fuel, $facility_allowance, $facility_other, $facility_signer, $facility_comment, $bookingId]);
+        ")->execute([$facility_status, $facility_fuel, $facility_allowance, $facility_other, $facility_signer, $facility_comment, $office_driver_assigned, $bookingId]);
 
         $pdo->prepare("UPDATE bookings SET status = ? WHERE id = ?")->execute([$newBookingStatus, $bookingId]);
         header("Location: booking_detail.php?id=$bookingId&msg=saved");
         exit;
     }
 
-    // 2. หัวหน้าสำนักงานคณบดี
-    if ($actionType === 'office' && in_array($currentUser['role'], ['office_head', 'admin'])) {
-        $office_status = $_POST['office_status'] ?? 'approved';
-        $office_driver_assigned = trim($_POST['office_driver_assigned'] ?? '');
-        $office_reason = trim($_POST['office_reason'] ?? '');
-        $office_other = trim($_POST['office_other'] ?? '');
-        $office_signer = $currentUser['fullname'];
-
-        $newBookingStatus = ($office_status === 'approved') ? 'pending_dean' : 'rejected';
-
-        $pdo->prepare("
-            UPDATE approvals SET 
-                office_status = ?, office_driver_assigned = ?, office_reason = ?, 
-                office_other = ?, office_signer = ?, office_signed_at = datetime('now') 
-            WHERE booking_id = ?
-        ")->execute([$office_status, $office_driver_assigned, $office_reason, $office_other, $office_signer, $bookingId]);
-
-        $pdo->prepare("UPDATE bookings SET status = ? WHERE id = ?")->execute([$newBookingStatus, $bookingId]);
-        header("Location: booking_detail.php?id=$bookingId&msg=saved");
-        exit;
-    }
-
-    // 3. คณบดีคณะวิทยาการจัดการ
-    if ($actionType === 'dean' && in_array($currentUser['role'], ['dean', 'admin'])) {
-        $dean_status = $_POST['dean_status'] ?? 'approved';
-        $dean_reason = trim($_POST['dean_reason'] ?? '');
-        $dean_other = trim($_POST['dean_other'] ?? '');
-        $dean_signer = $currentUser['fullname'];
-
-        $newBookingStatus = ($dean_status === 'approved') ? 'pending_driver' : 'rejected';
-
-        $pdo->prepare("
-            UPDATE approvals SET 
-                dean_status = ?, dean_reason = ?, dean_other = ?, 
-                dean_signer = ?, dean_signed_at = datetime('now') 
-            WHERE booking_id = ?
-        ")->execute([$dean_status, $dean_reason, $dean_other, $dean_signer, $bookingId]);
-
-        $pdo->prepare("UPDATE bookings SET status = ? WHERE id = ?")->execute([$newBookingStatus, $bookingId]);
-        header("Location: booking_detail.php?id=$bookingId&msg=saved");
-        exit;
-    }
-
-    // 4. พนักงานขับรถ
-    if ($actionType === 'driver' && in_array($currentUser['role'], ['driver', 'admin'])) {
-        $driver_signer = $currentUser['fullname'];
-
-        $pdo->prepare("
-            UPDATE approvals SET 
-                driver_ack_status = 'acknowledged', 
-                driver_signer = ?, 
-                driver_acknowledged_at = datetime('now') 
-            WHERE booking_id = ?
-        ")->execute([$driver_signer, $bookingId]);
-
-        $pdo->prepare("UPDATE bookings SET status = 'completed' WHERE id = ?")->execute([$bookingId]);
-        header("Location: booking_detail.php?id=$bookingId&msg=saved");
+    // ยกเลิกผลการพิจารณาเพื่อแก้ไขใหม่
+    if ($actionType === 'revert_facility') {
+        $pdo->prepare("UPDATE bookings SET status = 'pending_facility' WHERE id = ?")->execute([$bookingId]);
+        $pdo->prepare("UPDATE approvals SET facility_status = NULL, facility_signed_at = NULL WHERE booking_id = ?")->execute([$bookingId]);
+        header("Location: booking_detail.php?id=$bookingId&msg=reset");
         exit;
     }
 }
@@ -206,29 +156,29 @@ require_once __DIR__ . '/includes/header.php';
             </div>
         </div>
 
-        <!-- กล่องไทม์ไลน์ขั้นตอนการอนุมัติ 4 ลำดับ -->
+        <!-- กล่องขั้นตอนการพิจารณาและการเสนอเอกสาร -->
         <div class="card card-custom p-4">
-            <h5 class="fw-bold mb-4 text-dark">
-                <i class="fas fa-tasks text-primary me-2"></i>ขั้นตอนการพิจารณาอนุมัติ 4 ลำดับ
+            <h5 class="fw-bold mb-3 text-dark">
+                <i class="fas fa-tasks text-primary me-2"></i>ขั้นตอนการพิจารณาและเสนอเอกสาร
             </h5>
 
-            <!-- 1. หัวหน้างานอาคารสถานที่ -->
-            <div class="border rounded-3 p-3 mb-3 <?= ($approval['facility_status'] == 'approved') ? 'border-success bg-success-subtle' : (($booking['status'] == 'pending_facility') ? 'border-warning bg-warning-subtle' : 'bg-light') ?>">
+            <!-- 1. ขั้นตอนในระบบออนไลน์: หัวหน้างานอาคารสถานที่ -->
+            <div class="border rounded-3 p-3 mb-3 <?= (in_array($booking['status'], ['approved', 'completed', 'pending_office', 'pending_dean', 'pending_driver'])) ? 'border-success bg-success-subtle' : (($booking['status'] == 'pending_facility') ? 'border-warning bg-warning-subtle' : 'bg-light') ?>">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <h6 class="fw-bold mb-0">
-                        <span class="badge bg-primary me-2">ลำดับที่ 1</span>
+                        <span class="badge bg-primary me-2"><i class="fas fa-desktop me-1"></i> ขั้นตอนในระบบ</span>
                         ความเห็นของหัวหน้างานอาคารสถานที่
                     </h6>
-                    <?php if ($approval['facility_status'] == 'approved'): ?>
-                        <span class="badge bg-success"><i class="fas fa-check me-1"></i> เห็นชอบแล้ว</span>
-                    <?php elseif ($approval['facility_status'] == 'rejected'): ?>
-                        <span class="badge bg-danger"><i class="fas fa-times me-1"></i> ไม่เห็นชอบ</span>
+                    <?php if (in_array($booking['status'], ['approved', 'completed', 'pending_office', 'pending_dean', 'pending_driver'])): ?>
+                        <span class="badge bg-success"><i class="fas fa-check-circle me-1"></i> เห็นชอบแล้ว</span>
+                    <?php elseif ($booking['status'] == 'rejected'): ?>
+                        <span class="badge bg-danger"><i class="fas fa-times-circle me-1"></i> ไม่เห็นชอบ</span>
                     <?php else: ?>
                         <span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i> รอพิจารณา</span>
                     <?php endif; ?>
                 </div>
 
-                <?php if ($approval['facility_status']): ?>
+                <?php if (!empty($approval['facility_status'])): ?>
                     <div class="small">
                         <div><strong>ผลการพิจารณา:</strong> <?= ($approval['facility_status'] == 'approved') ? 'เห็นชอบ' : 'ไม่เห็นชอบ' ?></div>
                         <div><strong>การสนับสนุน:</strong> 
@@ -237,95 +187,57 @@ require_once __DIR__ . '/includes/header.php';
                             <?= (!empty($approval['facility_other'])) ? ' (อื่นๆ: ' . htmlspecialchars($approval['facility_other']) . ')' : '' ?>
                             <?= (!$approval['facility_fuel'] && !$approval['facility_allowance'] && empty($approval['facility_other'])) ? 'ไม่ระบุ' : '' ?>
                         </div>
+                        <?php if (!empty($approval['office_driver_assigned'])): ?>
+                            <div><strong>พนักงานขับรถ:</strong> <?= htmlspecialchars($approval['office_driver_assigned']) ?></div>
+                        <?php endif; ?>
                         <div><strong>ผู้ลงนาม:</strong> <?= htmlspecialchars($approval['facility_signer'] ?? 'นายเอกสิทธิ์ คงพิทักษ์') ?> (<?= thaiDate($approval['facility_signed_at']) ?>)</div>
                     </div>
                 <?php else: ?>
-                    <p class="text-muted small mb-0">รอหัวหน้างานอาคารสถานที่ (นายเอกสิทธิ์ คงพิทักษ์) พิจารณาเห็นชอบและรายการสนับสนุน</p>
+                    <p class="text-muted small mb-0">รอหัวหน้างานอาคารสถานที่ (นายเอกสิทธิ์ คงพิทักษ์) บันทึกความเห็นชอบและรายการสนับสนุน</p>
                 <?php endif; ?>
             </div>
 
-            <!-- 2. หัวหน้าสำนักงานคณบดี -->
-            <div class="border rounded-3 p-3 mb-3 <?= ($approval['office_status'] == 'approved') ? 'border-success bg-success-subtle' : (($booking['status'] == 'pending_office') ? 'border-warning bg-warning-subtle' : 'bg-light') ?>">
+            <!-- 2. ขั้นตอนต่อไป: เสนอลงนามในเอกสารจริง (ออฟไลน์) -->
+            <div class="border rounded-3 p-3 bg-light">
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h6 class="fw-bold mb-0">
-                        <span class="badge bg-primary me-2">ลำดับที่ 2</span>
-                        ความเห็นของหัวหน้าสำนักงานคณบดี
+                    <h6 class="fw-bold mb-0 text-secondary">
+                        <span class="badge bg-secondary me-2"><i class="fas fa-file-signature me-1"></i> ขั้นตอนเอกสารจริง</span>
+                        การเสนอลงนามในแบบฟอร์มขอใช้รถยนต์ (กระดาษ A4)
                     </h6>
-                    <?php if ($approval['office_status'] == 'approved'): ?>
-                        <span class="badge bg-success"><i class="fas fa-check me-1"></i> ให้ความเห็นชอบแล้ว</span>
-                    <?php elseif ($approval['office_status'] == 'rejected'): ?>
-                        <span class="badge bg-danger"><i class="fas fa-times me-1"></i> ไม่อนุญาต</span>
-                    <?php else: ?>
-                        <span class="badge bg-secondary"><i class="fas fa-clock me-1"></i> รอการพิจารณา</span>
-                    <?php endif; ?>
+                </div>
+                <p class="small text-muted mb-2">
+                    เมื่อหัวหน้างานอาคารสถานที่ลงนามเห็นชอบในระบบแล้ว ให้คลิกพิมพ์แบบฟอร์ม (A4) เพื่อนำเสนอผู้บริหารลงนามต่อไปตามระเบียบ:
+                </p>
+                <div class="row g-2 small">
+                    <div class="col-md-4">
+                        <div class="p-2 border rounded bg-white h-100">
+                            <strong>1. หัวหน้าสำนักงาน</strong><br>
+                            <span class="text-muted">นางซูไบดะห์ หะยีมะ</span><br>
+                            <small class="text-secondary">(ให้ความเห็นในเอกสาร)</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-2 border rounded bg-white h-100">
+                            <strong>2. คณบดีคณะฯ</strong><br>
+                            <span class="text-muted">ผศ. ดร.บงกช กมลเปรม</span><br>
+                            <small class="text-secondary">(ลงนามคำสั่งอนุมัติ)</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-2 border rounded bg-white h-100">
+                            <strong>3. พนักงานขับรถ</strong><br>
+                            <span class="text-muted"><?= htmlspecialchars($approval['office_driver_assigned'] ?? 'นายธเนศ อินเอิบ') ?></span><br>
+                            <small class="text-secondary">(ลงชื่อรับทราบภารกิจ)</small>
+                        </div>
+                    </div>
                 </div>
 
-                <?php if ($approval['office_status']): ?>
-                    <div class="small">
-                        <div><strong>ผลการพิจารณา:</strong> <?= ($approval['office_status'] == 'approved') ? 'ควรอนุญาต' : 'ไม่อนุญาต' ?></div>
-                        <?php if (!empty($approval['office_driver_assigned'])): ?>
-                            <div><strong>พนักงานขับรถที่มอบหมาย:</strong> <?= htmlspecialchars($approval['office_driver_assigned']) ?></div>
-                        <?php endif; ?>
-                        <?php if (!empty($approval['office_reason'])): ?>
-                            <div><strong>เหตุผล:</strong> <?= htmlspecialchars($approval['office_reason']) ?></div>
-                        <?php endif; ?>
-                        <div><strong>ผู้ลงนาม:</strong> <?= htmlspecialchars($approval['office_signer'] ?? 'นางซูไบดะห์ หะยีมะ') ?> (<?= thaiDate($approval['office_signed_at']) ?>)</div>
+                <?php if (in_array($booking['status'], ['approved', 'completed', 'pending_office', 'pending_dean', 'pending_driver'])): ?>
+                    <div class="mt-3 text-center">
+                        <a href="print_form.php?id=<?= $booking['id'] ?>" target="_blank" class="btn btn-gold btn-sm px-4 fw-bold shadow-sm">
+                            <i class="fas fa-print me-1"></i> พิมพ์แบบฟอร์มราชการ (A4) เพื่อเสนอลงนามต่อ
+                        </a>
                     </div>
-                <?php else: ?>
-                    <p class="text-muted small mb-0">รอหัวหน้าสำนักงานคณบดี (นางซูไบดะห์ หะยีมะ) มอบหมายพนักงานขับรถ</p>
-                <?php endif; ?>
-            </div>
-
-            <!-- 3. คณบดีคณะวิทยาการจัดการ -->
-            <div class="border rounded-3 p-3 mb-3 <?= ($approval['dean_status'] == 'approved') ? 'border-success bg-success-subtle' : (($booking['status'] == 'pending_dean') ? 'border-warning bg-warning-subtle' : 'bg-light') ?>">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h6 class="fw-bold mb-0">
-                        <span class="badge bg-primary me-2">ลำดับที่ 3</span>
-                        คำสั่งคณบดีคณะวิทยาการจัดการ
-                    </h6>
-                    <?php if ($approval['dean_status'] == 'approved'): ?>
-                        <span class="badge bg-success"><i class="fas fa-check-circle me-1"></i> อนุมัติแล้ว</span>
-                    <?php elseif ($approval['dean_status'] == 'rejected'): ?>
-                        <span class="badge bg-danger"><i class="fas fa-times me-1"></i> ไม่อนุญาต</span>
-                    <?php else: ?>
-                        <span class="badge bg-secondary"><i class="fas fa-clock me-1"></i> รอคำสั่งคณบดี</span>
-                    <?php endif; ?>
-                </div>
-
-                <?php if ($approval['dean_status']): ?>
-                    <div class="small">
-                        <div><strong>คำสั่ง:</strong> <span class="fw-bold text-success"><?= ($approval['dean_status'] == 'approved') ? 'อนุญาต' : 'ไม่อนุญาต' ?></span></div>
-                        <?php if (!empty($approval['dean_reason'])): ?>
-                            <div><strong>หมายเหตุ:</strong> <?= htmlspecialchars($approval['dean_reason']) ?></div>
-                        <?php endif; ?>
-                        <div><strong>ผู้ลงนาม:</strong> <?= htmlspecialchars($approval['dean_signer'] ?? 'ผู้ช่วยศาสตราจารย์ ดร.บงกช กมลเปรม') ?> (<?= thaiDate($approval['dean_signed_at']) ?>)</div>
-                    </div>
-                <?php else: ?>
-                    <p class="text-muted small mb-0">รอคณบดีคณะวิทยาการจัดการ (ผศ. ดร.บงกช กมลเปรม) พิจารณาสั่งการ</p>
-                <?php endif; ?>
-            </div>
-
-            <!-- 4. พนักงานขับรถยนต์ -->
-            <div class="border rounded-3 p-3 <?= ($approval['driver_ack_status'] == 'acknowledged') ? 'border-success bg-success-subtle' : (($booking['status'] == 'pending_driver') ? 'border-warning bg-warning-subtle' : 'bg-light') ?>">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h6 class="fw-bold mb-0">
-                        <span class="badge bg-primary me-2">ลำดับที่ 4</span>
-                        บันทึกพนักงานขับรถยนต์
-                    </h6>
-                    <?php if ($approval['driver_ack_status'] == 'acknowledged'): ?>
-                        <span class="badge bg-success"><i class="fas fa-check-double me-1"></i> รับทราบการขอใช้รถแล้ว</span>
-                    <?php else: ?>
-                        <span class="badge bg-secondary"><i class="fas fa-clock me-1"></i> รอคนขับลงชื่อรับทราบ</span>
-                    <?php endif; ?>
-                </div>
-
-                <?php if ($approval['driver_ack_status'] == 'acknowledged'): ?>
-                    <div class="small">
-                        <div><strong>สถานะ:</strong> ได้รับทราบการขอใช้รถยนต์แล้ว</div>
-                        <div><strong>พนักงานขับรถยนต์:</strong> <?= htmlspecialchars($approval['driver_signer'] ?? 'นายธเนศ อินเอิบ') ?> (<?= thaiDate($approval['driver_acknowledged_at']) ?>)</div>
-                    </div>
-                <?php else: ?>
-                    <p class="text-muted small mb-0">เมื่อคณบดีอนุมัติ พนักงานขับรถจะลงชื่อรับทราบภารกิจเดินทาง</p>
                 <?php endif; ?>
             </div>
         </div>
@@ -355,131 +267,137 @@ require_once __DIR__ . '/includes/header.php';
                     เข้าสู่ระบบในฐานะ Admin: <strong class="text-primary"><?= htmlspecialchars($currentUser['fullname']) ?></strong>
                 </div>
 
-                <!-- สิทธิ์ Admin: พิจารณาได้ทุกขั้นตอน -->
+                <!-- สิทธิ์ Admin: ขั้นตอนเดียวออนไลน์ (หัวหน้างานอาคารสถานที่) -->
                 <?php if ($booking['status'] == 'pending_facility'): ?>
-                    <div class="alert alert-primary p-2 small mb-3">
-                        <i class="fas fa-info-circle me-1"></i> 1. บันทึกความเห็นของหัวหน้างานอาคารสถานที่
+                    <div class="alert alert-primary p-3 small mb-3">
+                        <div class="fw-bold fs-6 mb-1"><i class="fas fa-signature me-1"></i> พิจารณาโดย: หัวหน้างานอาคารสถานที่</div>
+                        <div class="text-muted">ตรวจสอบยานพาหนะ รายการสนับสนุน และมอบหมายคนขับ เมื่อบันทึกเห็นชอบแล้วจะสามารถพิมพ์แบบเสนอต่อได้ทันที</div>
                     </div>
                     <form method="POST">
                         <input type="hidden" name="action_type" value="facility">
+                        
                         <div class="mb-3">
-                            <label class="form-label fw-bold">ความเห็น</label>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="facility_status" id="fac_app" value="approved" checked>
-                                <label class="form-check-label text-success fw-bold" for="fac_app">เห็นชอบ</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="facility_status" id="fac_rej" value="rejected">
-                                <label class="form-check-label text-danger fw-bold" for="fac_rej">ไม่เห็นชอบ</label>
+                            <label class="form-label fw-bold">ผลการพิจารณา <span class="text-danger">*</span></label>
+                            <div class="d-flex gap-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="facility_status" id="fac_app" value="approved" checked>
+                                    <label class="form-check-label text-success fw-bold" for="fac_app">
+                                        <i class="fas fa-check-circle me-1"></i> เห็นชอบ (พร้อมพิมพ์เสนอต่อ)
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="facility_status" id="fac_rej" value="rejected">
+                                    <label class="form-check-label text-danger fw-bold" for="fac_rej">
+                                        <i class="fas fa-times-circle me-1"></i> ไม่เห็นชอบ
+                                    </label>
+                                </div>
                             </div>
                         </div>
-                        <div class="mb-3 bg-light p-2 rounded">
-                            <label class="form-label fw-bold small">รายการสนับสนุน</label>
-                            <div class="form-check">
+
+                        <div class="mb-3 bg-light p-3 rounded-3 border">
+                            <label class="form-label fw-bold small text-dark mb-2">
+                                <i class="fas fa-gas-pump text-warning me-1"></i> รายการสนับสนุนงบประมาณ
+                            </label>
+                            <div class="form-check mb-1">
                                 <input class="form-check-input" type="checkbox" name="facility_fuel" value="1" id="fuel_check" checked>
                                 <label class="form-check-label" for="fuel_check">ค่าน้ำมันเชื้อเพลิง</label>
                             </div>
-                            <div class="form-check">
+                            <div class="form-check mb-2">
                                 <input class="form-check-input" type="checkbox" name="facility_allowance" value="1" id="allow_check" checked>
                                 <label class="form-check-label" for="allow_check">เบี้ยเลี้ยง / ค่าตอบแทน</label>
                             </div>
-                            <div class="mt-2">
+                            <div>
                                 <input type="text" name="facility_other" class="form-control form-control-sm" placeholder="อื่นๆ ระบุ (ถ้ามี)">
                             </div>
                         </div>
-                        <button type="submit" class="btn btn-success w-100 py-2">
-                            <i class="fas fa-check me-1"></i> บันทึกความเห็นอาคารสถานที่
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-dark">
+                                <i class="fas fa-id-card text-primary me-1"></i> มอบหมายพนักงานขับรถ <span class="text-danger">*</span>
+                            </label>
+                            <select name="office_driver_assigned" class="form-select form-select-sm" required>
+                                <option value="นายธเนศ อินเอิบ" selected>นายธเนศ อินเอิบ (พนักงานขับรถยนต์)</option>
+                                <?php foreach ($drivers as $d): ?>
+                                    <?php if ($d !== 'นายธเนศ อินเอิบ'): ?>
+                                        <option value="<?= htmlspecialchars($d) ?>"><?= htmlspecialchars($d) ?></option>
+                                    <?php endif; ?>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-dark">ความเห็น / ข้อเสนอแนะเพิ่มเติม</label>
+                            <textarea name="facility_comment" class="form-control form-control-sm" rows="2" placeholder="ความเห็นเพิ่มเติม (ถ้ามี)"></textarea>
+                        </div>
+
+                        <div class="mb-3 small text-muted bg-white p-2 border rounded">
+                            <i class="fas fa-user-check text-success me-1"></i> ผู้ลงนาม: <strong><?= htmlspecialchars($currentUser['fullname'] ?? 'นายเอกสิทธิ์ คงพิทักษ์') ?></strong><br>
+                            <span class="text-muted">(หัวหน้างานอาคารสถานที่และยานพาหนะ)</span>
+                        </div>
+
+                        <button type="submit" class="btn btn-success w-100 py-2 fw-bold shadow-sm">
+                            <i class="fas fa-check-circle me-1"></i> บันทึกเห็นชอบและเปิดให้พิมพ์เสนอต่อ
                         </button>
                     </form>
 
-                <!-- 2. หัวหน้าสำนักงานคณบดี -->
-                <?php elseif ($booking['status'] == 'pending_office'): ?>
-                    <div class="alert alert-info p-2 small mb-3">
-                        <i class="fas fa-info-circle me-1"></i> 2. บันทึกความเห็นหัวหน้าสำนักงาน และมอบหมายคนขับ
-                    </div>
-                    <form method="POST">
-                        <input type="hidden" name="action_type" value="office">
+                <?php elseif (in_array($booking['status'], ['approved', 'completed', 'pending_office', 'pending_dean', 'pending_driver'])): ?>
+                    <!-- สถานะ: เห็นชอบแล้ว พร้อมพิมพ์เสนอต่อ -->
+                    <div class="text-center py-2">
                         <div class="mb-3">
-                            <label class="form-label fw-bold">ความเห็น</label>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="office_status" id="off_app" value="approved" checked>
-                                <label class="form-check-label text-success fw-bold" for="off_app">ควรอนุญาต</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="office_status" id="off_rej" value="rejected">
-                                <label class="form-check-label text-danger fw-bold" for="off_rej">ไม่อนุญาต</label>
-                            </div>
+                            <i class="fas fa-check-circle text-success fs-1"></i>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">มอบหมายพนักงานขับรถ <span class="text-danger">*</span></label>
-                            <input type="text" name="office_driver_assigned" class="form-control form-control-sm" 
-                                   value="นายธเนศ อินเอิบ" placeholder="ระบุชื่อพนักงานขับรถ" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-bold small">เหตุผล / ข้อเสนอแนะเพิ่มเติม</label>
-                            <textarea name="office_reason" class="form-control form-control-sm" rows="2"></textarea>
-                        </div>
-                        <button type="submit" class="btn btn-primary w-100 py-2">
-                            <i class="fas fa-paper-plane me-1"></i> บันทึกและส่งต่อคณบดี
-                        </button>
-                    </form>
+                        <h6 class="fw-bold text-success mb-1">หัวหน้างานอาคารสถานที่เห็นชอบแล้ว</h6>
+                        <p class="small text-muted mb-3">
+                            คำขอนี้ได้รับการตรวจสอบและบันทึกความเห็นชอบในระบบแล้ว พร้อมสำหรับพิมพ์แบบฟอร์มเพื่อเสนอลงนามตามลำดับ
+                        </p>
 
-                <!-- 3. คณบดีคณะวิทยาการจัดการ -->
-                <?php elseif ($booking['status'] == 'pending_dean'): ?>
-                    <div class="alert alert-warning p-2 small mb-3">
-                        <i class="fas fa-stamp me-1"></i> 3. คณบดีคณะวิทยาการจัดการ พิจารณาสั่งการ
-                    </div>
-                    <form method="POST">
-                        <input type="hidden" name="action_type" value="dean">
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">คำสั่ง</label>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="dean_status" id="dean_app" value="approved" checked>
-                                <label class="form-check-label text-success fw-bold fs-6" for="dean_app">✓ อนุญาต</label>
+                        <div class="bg-light p-3 rounded text-start small mb-3 border">
+                            <div class="mb-1">
+                                <strong>ผู้พิจารณา:</strong> <?= htmlspecialchars($approval['facility_signer'] ?? 'นายเอกสิทธิ์ คงพิทักษ์') ?>
                             </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="dean_status" id="dean_rej" value="rejected">
-                                <label class="form-check-label text-danger fw-bold fs-6" for="dean_rej">✗ ไม่อนุญาต</label>
+                            <div class="mb-1">
+                                <strong>เวลาพิจารณา:</strong> <?= !empty($approval['facility_signed_at']) ? thaiDateShort($approval['facility_signed_at']) : 'บันทึกแล้ว' ?>
+                            </div>
+                            <div class="mb-1">
+                                <strong>พนักงานขับรถ:</strong> <?= htmlspecialchars($approval['office_driver_assigned'] ?? 'นายธเนศ อินเอิบ') ?>
+                            </div>
+                            <div>
+                                <strong>การสนับสนุน:</strong> 
+                                <?= (!empty($approval['facility_fuel']) ? 'ค่าน้ำมัน' : '') ?>
+                                <?= (!empty($approval['facility_allowance']) ? ' + ค่าเบี้ยเลี้ยง' : '') ?>
+                                <?= (!empty($approval['facility_other']) ? ' (' . htmlspecialchars($approval['facility_other']) . ')' : '') ?>
                             </div>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-bold small">เหตุผล (กรณีไม่อนุญาต หรือข้อสั่งการอื่นๆ)</label>
-                            <textarea name="dean_reason" class="form-control form-control-sm" rows="2"></textarea>
-                        </div>
-                        <button type="submit" class="btn btn-success w-100 py-2">
-                            <i class="fas fa-signature me-1"></i> สั่งการ / ลงนาม
-                        </button>
-                    </form>
 
-                <!-- 4. พนักงานขับรถยนต์ -->
-                <?php elseif ($booking['status'] == 'pending_driver'): ?>
-                    <div class="alert alert-success p-2 small mb-3">
-                        <i class="fas fa-car me-1"></i> 4. คณบดีอนุมัติแล้ว ลงชื่อรับทราบภารกิจ
+                        <a href="print_form.php?id=<?= $booking['id'] ?>" target="_blank" class="btn btn-success btn-lg w-100 fw-bold py-2 mb-2 shadow-sm">
+                            <i class="fas fa-print me-1"></i> พิมพ์แบบฟอร์มราชการ (A4)
+                        </a>
+
+                        <form method="POST" onsubmit="return confirm('ยืนยันที่จะยกเลิกผลการพิจารณาเพื่อกลับไปพิจารณาใหม่หรือไม่?');" class="mt-2">
+                            <input type="hidden" name="action_type" value="revert_facility">
+                            <button type="submit" class="btn btn-outline-secondary btn-sm w-100">
+                                <i class="fas fa-undo me-1"></i> แก้ไข / พิจารณาใหม่
+                            </button>
+                        </form>
                     </div>
-                    <form method="POST">
-                        <input type="hidden" name="action_type" value="driver">
-                        <div class="mb-3">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="driver_ack" checked required>
-                                <label class="form-check-label" for="driver_ack">
-                                    บันทึกรับทราบการขอใช้รถยนต์แล้ว (นายธเนศ อินเอิบ)
-                                </label>
-                            </div>
-                        </div>
-                        <button type="submit" class="btn btn-primary w-100 py-2">
-                            <i class="fas fa-check-double me-1"></i> ยืนยันรับทราบงาน
-                        </button>
-                    </form>
+
+                <?php elseif ($booking['status'] == 'rejected'): ?>
+                    <div class="text-center py-3">
+                        <i class="fas fa-times-circle text-danger fs-1 mb-2 d-block"></i>
+                        <span class="text-danger fw-bold fs-6">คำขอนี้ไม่เห็นชอบ / ไม่อนุมัติ</span>
+                        <p class="small text-muted mt-1">หัวหน้างานอาคารสถานที่บันทึกผลว่าไม่เห็นชอบ</p>
+                        
+                        <form method="POST" onsubmit="return confirm('ยืนยันที่จะเปิดให้พิจารณาคำขอนี้ใหม่อีกครั้งหรือไม่?');" class="mt-3">
+                            <input type="hidden" name="action_type" value="revert_facility">
+                            <button type="submit" class="btn btn-outline-primary btn-sm w-100">
+                                <i class="fas fa-redo me-1"></i> เปิดพิจารณาใหม่อีกครั้ง
+                            </button>
+                        </form>
+                    </div>
 
                 <?php else: ?>
                     <div class="text-center py-3">
-                        <?php if ($booking['status'] == 'completed'): ?>
-                            <i class="fas fa-check-circle text-success fs-1 mb-2 d-block"></i>
-                            <span class="text-success fw-bold">คำขอนี้ได้รับการอนุมัติเสร็จสมบูรณ์แล้ว</span>
-                        <?php elseif ($booking['status'] == 'rejected'): ?>
-                            <i class="fas fa-times-circle text-danger fs-1 mb-2 d-block"></i>
-                            <span class="text-danger fw-bold">คำขอนี้ไม่ได้รับการอนุมัติ</span>
-                        <?php endif; ?>
+                        <span class="text-muted">สถานะ: <?= htmlspecialchars($booking['status']) ?></span>
                     </div>
                 <?php endif; ?>
 

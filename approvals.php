@@ -7,33 +7,21 @@ requireAdmin();
 
 $userRole = $currentUser['role'];
 
-// กำหนดเงื่อนไขการดึงคำขอตามบทบาท
-$filterStatus = 'all';
-if ($userRole === 'facility_head') {
-    $filterStatus = 'pending_facility';
-} elseif ($userRole === 'office_head') {
-    $filterStatus = 'pending_office';
-} elseif ($userRole === 'dean') {
-    $filterStatus = 'pending_dean';
-} elseif ($userRole === 'driver') {
-    $filterStatus = 'pending_driver';
-}
-
-// คำขอที่รอผู้ใช้คนปัจจุบันพิจารณา
-$pendingSql = "SELECT b.*, v.brand_model, v.vehicle_type FROM bookings b JOIN vehicles v ON b.vehicle_id = v.id ";
-if ($userRole === 'facility_head') {
-    $pendingSql .= "WHERE b.status = 'pending_facility' ";
-} elseif ($userRole === 'office_head') {
-    $pendingSql .= "WHERE b.status = 'pending_office' ";
-} elseif ($userRole === 'dean') {
-    $pendingSql .= "WHERE b.status = 'pending_dean' ";
-} elseif ($userRole === 'driver') {
-    $pendingSql .= "WHERE b.status = 'pending_driver' ";
-} else { // admin or others
-    $pendingSql .= "WHERE b.status LIKE 'pending_%' ";
-}
-$pendingSql .= "ORDER BY b.id DESC";
+// คำขอที่รอหัวหน้างานอาคารสถานที่พิจารณา (ขั้นตอนเดียวในระบบ)
+$pendingSql = "SELECT b.*, v.brand_model, v.vehicle_type 
+               FROM bookings b 
+               JOIN vehicles v ON b.vehicle_id = v.id 
+               WHERE b.status = 'pending_facility' 
+               ORDER BY b.id DESC";
 $pendingList = $pdo->query($pendingSql)->fetchAll();
+
+// คำขอที่เห็นชอบแล้ว / พร้อมพิมพ์เสนอต่อ
+$approvedSql = "SELECT b.*, v.brand_model, v.vehicle_type 
+                FROM bookings b 
+                JOIN vehicles v ON b.vehicle_id = v.id 
+                WHERE b.status IN ('approved', 'completed', 'pending_office', 'pending_dean', 'pending_driver') 
+                ORDER BY b.id DESC";
+$approvedList = $pdo->query($approvedSql)->fetchAll();
 
 // คำขอทั้งหมดสำหรับแท็บประวัติ
 $allBookings = $pdo->query("
@@ -49,42 +37,51 @@ require_once __DIR__ . '/includes/header.php';
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h4 class="fw-bold text-dark mb-1">
-            <i class="fas fa-signature text-primary me-2"></i>ศูนย์พิจารณาอนุมัติคำขอใช้รถยนต์
+            <i class="fas fa-signature text-primary me-2"></i>พิจารณาอนุมัติคำขอใช้รถยนต์ (หัวหน้างานอาคารสถานที่)
         </h4>
         <span class="text-muted small">
-            บทบาทของคุณ: <strong><?= htmlspecialchars($currentUser['fullname']) ?></strong> (<?= htmlspecialchars($currentUser['position']) ?>)
+            ผู้ดำเนินการ: <strong><?= htmlspecialchars($currentUser['fullname']) ?></strong> (หัวหน้างานอาคารสถานที่และยานพาหนะ)
         </span>
     </div>
     <div>
-        <span class="badge bg-danger fs-6 px-3 py-2">
-            รอพิจารณา <?= count($pendingList) ?> รายการ
+        <span class="badge bg-warning text-dark fs-6 px-3 py-2 border">
+            <i class="fas fa-clock me-1"></i> รอพิจารณา <?= count($pendingList) ?> รายการ
         </span>
     </div>
+</div>
+
+<div class="alert alert-info py-2 px-3 small mb-4">
+    <i class="fas fa-info-circle me-1"></i> <strong>ระบบอนุมัติขั้นตอนเดียว:</strong> หัวหน้างานอาคารสถานที่พิจารณาเห็นชอบ มอบหมายคนขับ และสนับสนุนงบประมาณในระบบ จากนั้นพิมพ์แบบฟอร์มราชการ (A4) เพื่อเสนอลงนามตามลำดับสายงานต่อไป
 </div>
 
 <!-- แท็บเลือกมุมมอง -->
 <ul class="nav nav-pills mb-4 bg-white p-2 rounded-3 shadow-sm" id="approvalTabs" role="tablist">
     <li class="nav-item" role="presentation">
         <button class="nav-link active fw-semibold" id="pending-tab" data-bs-toggle="pill" data-bs-target="#pending-content" type="button" role="tab">
-            <i class="fas fa-clock text-warning me-1"></i> รายการที่ต้องดำเนินการ (<?= count($pendingList) ?>)
+            <i class="fas fa-clock text-warning me-1"></i> รอพิจารณา (<?= count($pendingList) ?>)
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link fw-semibold" id="approved-tab" data-bs-toggle="pill" data-bs-target="#approved-content" type="button" role="tab">
+            <i class="fas fa-check-circle text-success me-1"></i> เห็นชอบแล้ว / พร้อมพิมพ์ (<?= count($approvedList) ?>)
         </button>
     </li>
     <li class="nav-item" role="presentation">
         <button class="nav-link fw-semibold" id="all-tab" data-bs-toggle="pill" data-bs-target="#all-content" type="button" role="tab">
-            <i class="fas fa-list text-primary me-1"></i> คำขอทั้งหมดในระบบ (<?= count($allBookings) ?>)
+            <i class="fas fa-list text-primary me-1"></i> คำขอทั้งหมด (<?= count($allBookings) ?>)
         </button>
     </li>
 </ul>
 
 <div class="tab-content" id="approvalTabsContent">
-    <!-- แท็บ: รอพิจารณา -->
+    <!-- แท็บ 1: รอพิจารณา -->
     <div class="tab-pane fade show active" id="pending-content" role="tabpanel">
         <?php if (empty($pendingList)): ?>
             <div class="card card-custom p-5 text-center">
                 <i class="fas fa-check-circle text-success fs-1 mb-3"></i>
-                <h5 class="fw-bold text-dark">ไม่มีคำขอที่ค้างพิจารณาสำหรับบทบาทนี้</h5>
+                <h5 class="fw-bold text-dark">ไม่มีคำขอที่ค้างพิจารณา</h5>
                 <p class="text-muted small">
-                    คำขอทั้งหมดได้รับการพิจารณาเรียบร้อยแล้ว หรือสามารถใช้แถบ "สลับบทบาทใช้งาน" ด้านบนเพื่อทดสอบพิจารณาในขั้นตอนอื่นได้
+                    คำขอใช้รถยนต์ทั้งหมดได้รับการพิจารณาเรียบร้อยแล้ว
                 </p>
             </div>
         <?php else: ?>
@@ -112,7 +109,52 @@ require_once __DIR__ . '/includes/header.php';
 
                         <div class="mt-auto">
                             <a href="booking_detail.php?id=<?= $item['id'] ?>" class="btn btn-warning w-100 fw-bold">
-                                <i class="fas fa-pen-nib me-1"></i> เปิดพิจารณาคำขอนี้
+                                <i class="fas fa-pen-nib me-1"></i> พิจารณาคำขอนี้
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+    </div>
+
+    <!-- แท็บ 2: เห็นชอบแล้ว พร้อมพิมพ์ -->
+    <div class="tab-pane fade" id="approved-content" role="tabpanel">
+        <?php if (empty($approvedList)): ?>
+            <div class="card card-custom p-5 text-center">
+                <i class="fas fa-folder-open text-muted fs-1 mb-3"></i>
+                <h5 class="fw-bold text-dark">ยังไม่มีคำขอที่ผ่านการเห็นชอบ</h5>
+            </div>
+        <?php else: ?>
+            <div class="row g-3">
+                <?php foreach ($approvedList as $item): ?>
+                <div class="col-md-6 col-lg-4">
+                    <div class="card card-custom h-100 p-3 border-top border-4 border-success">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="badge bg-light text-dark border"><?= htmlspecialchars($item['doc_no'] ?? '-') ?></span>
+                            <div><?= getStatusBadge($item['status']) ?></div>
+                        </div>
+
+                        <h6 class="fw-bold text-success mb-1"><?= htmlspecialchars($item['plate_number']) ?></h6>
+                        <div class="text-muted small mb-2"><?= htmlspecialchars($item['brand_model']) ?></div>
+
+                        <p class="text-dark small mb-2" style="min-height: 40px;">
+                            <strong>ภารกิจ:</strong> <?= htmlspecialchars($item['purpose']) ?>
+                        </p>
+
+                        <div class="bg-light p-2 rounded-2 small mb-3">
+                            <div><i class="fas fa-user text-secondary me-1"></i><strong>ผู้ขอ:</strong> <?= htmlspecialchars($item['requester_name']) ?></div>
+                            <div><i class="fas fa-map-marker-alt text-danger me-1"></i><strong>ปลายทาง:</strong> <?= htmlspecialchars($item['route_to']) ?></div>
+                            <div><i class="fas fa-calendar-alt text-primary me-1"></i><strong>วันที่:</strong> <?= thaiDateShort($item['start_datetime']) ?></div>
+                        </div>
+
+                        <div class="mt-auto d-flex gap-2">
+                            <a href="print_form.php?id=<?= $item['id'] ?>" target="_blank" class="btn btn-success flex-grow-1 fw-bold">
+                                <i class="fas fa-print me-1"></i> พิมพ์แบบฟอร์ม A4
+                            </a>
+                            <a href="booking_detail.php?id=<?= $item['id'] ?>" class="btn btn-outline-secondary">
+                                <i class="fas fa-eye"></i>
                             </a>
                         </div>
                     </div>
