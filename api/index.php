@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 // api/index.php - Vercel Serverless Entry Point & Router
 
 $rootDir = realpath(__DIR__ . '/..');
