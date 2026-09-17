@@ -15,9 +15,34 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $purpose = trim($_POST['purpose'] ?? '');
     $route_from = trim($_POST['route_from'] ?? '');
     $route_to = trim($_POST['route_to'] ?? '');
-    $start_date = trim($_POST['start_date'] ?? '');
+
+    // แปลงวัน เดือน ปี (พ.ศ.) เป็น YYYY-MM-DD
+    if (!empty($_POST['start_day']) && !empty($_POST['start_month']) && !empty($_POST['start_year'])) {
+        $sDay = (int)$_POST['start_day'];
+        $sMonth = (int)$_POST['start_month'];
+        $sYear = (int)$_POST['start_year'];
+        if ($sYear > 2400) {
+            $sYear -= 543; // แปลง พ.ศ. เป็น ค.ศ.
+        }
+        $start_date = sprintf('%04d-%02d-%02d', $sYear, $sMonth, $sDay);
+    } else {
+        $start_date = trim($_POST['start_date'] ?? '');
+    }
+
     $start_time = trim($_POST['start_time'] ?? '');
-    $end_date = trim($_POST['end_date'] ?? '');
+
+    if (!empty($_POST['end_day']) && !empty($_POST['end_month']) && !empty($_POST['end_year'])) {
+        $eDay = (int)$_POST['end_day'];
+        $eMonth = (int)$_POST['end_month'];
+        $eYear = (int)$_POST['end_year'];
+        if ($eYear > 2400) {
+            $eYear -= 543; // แปลง พ.ศ. เป็น ค.ศ.
+        }
+        $end_date = sprintf('%04d-%02d-%02d', $eYear, $eMonth, $eDay);
+    } else {
+        $end_date = trim($_POST['end_date'] ?? '');
+    }
+
     $end_time = trim($_POST['end_time'] ?? '');
     $passenger_count = (int)($_POST['passenger_count'] ?? 1);
     $passenger_names = trim($_POST['passenger_names'] ?? '');
@@ -111,6 +136,41 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             header("Location: booking_detail.php?id=$newBookingId&success=1");
             exit;
         }
+    }
+}
+
+$thaiMonths = [
+    1 => 'มกราคม', 2 => 'กุมภาพันธ์', 3 => 'มีนาคม', 4 => 'เมษายน',
+    5 => 'พฤษภาคม', 6 => 'มิถุนายน', 7 => 'กรกฎาคม', 8 => 'สิงหาคม',
+    9 => 'กันยายน', 10 => 'ตุลาคม', 11 => 'พฤศจิกายน', 12 => 'ธันวาคม'
+];
+
+$tomorrow = strtotime('+1 day');
+$currBE = (int)date('Y') + 543;
+
+$defStartDay = isset($_POST['start_day']) ? (int)$_POST['start_day'] : (int)date('j', $tomorrow);
+$defStartMonth = isset($_POST['start_month']) ? (int)$_POST['start_month'] : (int)date('n', $tomorrow);
+$defStartYear = isset($_POST['start_year']) ? (int)$_POST['start_year'] : ((int)date('Y', $tomorrow) + 543);
+
+if (!empty($_POST['start_date']) && empty($_POST['start_day'])) {
+    $st = strtotime($_POST['start_date']);
+    if ($st) {
+        $defStartDay = (int)date('j', $st);
+        $defStartMonth = (int)date('n', $st);
+        $defStartYear = (int)date('Y', $st) + 543;
+    }
+}
+
+$defEndDay = isset($_POST['end_day']) ? (int)$_POST['end_day'] : $defStartDay;
+$defEndMonth = isset($_POST['end_month']) ? (int)$_POST['end_month'] : $defStartMonth;
+$defEndYear = isset($_POST['end_year']) ? (int)$_POST['end_year'] : $defStartYear;
+
+if (!empty($_POST['end_date']) && empty($_POST['end_day'])) {
+    $et = strtotime($_POST['end_date']);
+    if ($et) {
+        $defEndDay = (int)date('j', $et);
+        $defEndMonth = (int)date('n', $et);
+        $defEndYear = (int)date('Y', $et) + 543;
     }
 }
 
@@ -217,33 +277,112 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                 </div>
 
-                <!-- ส่วนที่ 3: วันและเวลาเดินทาง -->
+                <!-- ส่วนที่ 3: วันและเวลาเดินทาง (วัน เดือน ปี) -->
                 <div class="bg-light p-3 rounded-3 mb-4">
                     <h6 class="fw-bold text-primary mb-3">
-                        <i class="fas fa-clock me-2"></i>3. กำหนดวันและเวลาเดินทาง
+                        <i class="fas fa-calendar-alt me-2"></i>3. กำหนดวันและเวลาเดินทาง (วัน เดือน ปี)
                     </h6>
                     <div class="row g-3">
-                        <div class="col-md-3">
-                            <label class="form-label fw-semibold">ตั้งแต่วันที่ <span class="text-danger">*</span></label>
-                            <input type="date" name="start_date" class="form-control" 
-                                   min="<?= date('Y-m-d') ?>"
-                                   value="<?= htmlspecialchars($_POST['start_date'] ?? date('Y-m-d', strtotime('+1 day'))) ?>" required>
+                        <!-- ขาไป / เริ่มต้น -->
+                        <div class="col-lg-8 col-md-12">
+                            <label class="form-label fw-semibold">
+                                <i class="fas fa-play-circle text-success me-1"></i>ตั้งแต่วันที่ (วัน เดือน ปี) <span class="text-danger">*</span>
+                            </label>
+                            <div class="row g-2">
+                                <div class="col-3">
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-white px-2 small text-muted">วัน</span>
+                                        <select name="start_day" class="form-select fw-semibold" required>
+                                            <?php for ($d = 1; $d <= 31; $d++): ?>
+                                                <option value="<?= $d ?>" <?= ($defStartDay == $d) ? 'selected' : '' ?>><?= $d ?></option>
+                                            <?php endfor; ?>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-5">
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-white px-2 small text-muted">เดือน</span>
+                                        <select name="start_month" class="form-select fw-semibold" required>
+                                            <?php foreach ($thaiMonths as $mNum => $mName): ?>
+                                                <option value="<?= $mNum ?>" <?= ($defStartMonth == $mNum) ? 'selected' : '' ?>><?= $mName ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-white px-2 small text-muted">ปี พ.ศ.</span>
+                                        <select name="start_year" class="form-select fw-semibold" required>
+                                            <?php for ($y = $currBE; $y <= $currBE + 3; $y++): ?>
+                                                <option value="<?= $y ?>" <?= ($defStartYear == $y) ? 'selected' : '' ?>><?= $y ?></option>
+                                            <?php endfor; ?>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="col-md-3">
-                            <label class="form-label fw-semibold">เวลาออกเดินทาง <span class="text-danger">*</span></label>
-                            <input type="time" name="start_time" class="form-control" 
-                                   value="<?= htmlspecialchars($_POST['start_time'] ?? '08:00') ?>" required>
+
+                        <!-- เวลาออกเดินทาง -->
+                        <div class="col-lg-4 col-md-12">
+                            <label class="form-label fw-semibold">
+                                <i class="fas fa-clock text-primary me-1"></i>เวลาออกเดินทาง <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                <input type="time" name="start_time" class="form-control fw-semibold" 
+                                       value="<?= htmlspecialchars($_POST['start_time'] ?? '08:00') ?>" required>
+                                <span class="input-group-text bg-white">น.</span>
+                            </div>
                         </div>
-                        <div class="col-md-3">
-                            <label class="form-label fw-semibold">ถึงวันที่ (เดินทางกลับ) <span class="text-danger">*</span></label>
-                            <input type="date" name="end_date" class="form-control" 
-                                   min="<?= date('Y-m-d') ?>"
-                                   value="<?= htmlspecialchars($_POST['end_date'] ?? date('Y-m-d', strtotime('+1 day'))) ?>" required>
+
+                        <!-- ขากลับ / สิ้นสุด -->
+                        <div class="col-lg-8 col-md-12">
+                            <label class="form-label fw-semibold">
+                                <i class="fas fa-flag-checkered text-danger me-1"></i>ถึงวันที่ / วันเดินทางกลับ (วัน เดือน ปี) <span class="text-danger">*</span>
+                            </label>
+                            <div class="row g-2">
+                                <div class="col-3">
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-white px-2 small text-muted">วัน</span>
+                                        <select name="end_day" class="form-select fw-semibold" required>
+                                            <?php for ($d = 1; $d <= 31; $d++): ?>
+                                                <option value="<?= $d ?>" <?= ($defEndDay == $d) ? 'selected' : '' ?>><?= $d ?></option>
+                                            <?php endfor; ?>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-5">
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-white px-2 small text-muted">เดือน</span>
+                                        <select name="end_month" class="form-select fw-semibold" required>
+                                            <?php foreach ($thaiMonths as $mNum => $mName): ?>
+                                                <option value="<?= $mNum ?>" <?= ($defEndMonth == $mNum) ? 'selected' : '' ?>><?= $mName ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-white px-2 small text-muted">ปี พ.ศ.</span>
+                                        <select name="end_year" class="form-select fw-semibold" required>
+                                            <?php for ($y = $currBE; $y <= $currBE + 3; $y++): ?>
+                                                <option value="<?= $y ?>" <?= ($defEndYear == $y) ? 'selected' : '' ?>><?= $y ?></option>
+                                            <?php endfor; ?>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="col-md-3">
-                            <label class="form-label fw-semibold">เวลากลับถึง <span class="text-danger">*</span></label>
-                            <input type="time" name="end_time" class="form-control" 
-                                   value="<?= htmlspecialchars($_POST['end_time'] ?? '17:00') ?>" required>
+
+                        <!-- เวลากลับถึง -->
+                        <div class="col-lg-4 col-md-12">
+                            <label class="form-label fw-semibold">
+                                <i class="fas fa-clock text-primary me-1"></i>เวลากลับถึง <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                <input type="time" name="end_time" class="form-control fw-semibold" 
+                                       value="<?= htmlspecialchars($_POST['end_time'] ?? '17:00') ?>" required>
+                                <span class="input-group-text bg-white">น.</span>
+                            </div>
                         </div>
                     </div>
                 </div>
