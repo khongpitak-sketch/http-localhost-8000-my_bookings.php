@@ -146,8 +146,22 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <div class="container d-flex flex-wrap justify-content-between align-items-center">
         <?php if ($isAdmin): ?>
             <div class="d-flex align-items-center">
-                <span class="badge bg-success me-2"><i class="fas fa-user-shield me-1"></i> เข้าสู่ระบบในฐานะ Admin</span>
+                <span class="badge bg-danger me-2"><i class="fas fa-user-shield me-1"></i> ผู้ดูแลระบบ (Admin)</span>
                 <strong class="text-warning me-2"><?= htmlspecialchars($currentUser['fullname']) ?></strong>
+                <span class="text-light opacity-75 small">(<?= htmlspecialchars($currentUser['position']) ?>)</span>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <a href="users.php" class="btn btn-warning btn-sm py-0 px-2 text-dark fw-semibold small">
+                    <i class="fas fa-users-gear me-1"></i> รายชื่อ & รหัสผ่าน
+                </a>
+                <a href="logout.php" class="btn btn-outline-light btn-sm py-0 px-2 small" onclick="return confirm('ยืนยันต้องการออกจากระบบ?');">
+                    <i class="fas fa-sign-out-alt me-1"></i> ออกจากระบบ
+                </a>
+            </div>
+        <?php elseif ($isLoggedIn): ?>
+            <div class="d-flex align-items-center">
+                <span class="badge bg-primary me-2"><i class="fas fa-user-check me-1"></i> บุคลากรคณะวิทยาการจัดการ</span>
+                <strong class="text-white me-2">สวัสดี, คุณ<?= htmlspecialchars($currentUser['fullname']) ?></strong>
                 <span class="text-light opacity-75 small">(<?= htmlspecialchars($currentUser['position']) ?>)</span>
             </div>
             <div>
@@ -157,11 +171,11 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             </div>
         <?php else: ?>
             <div class="small text-light">
-                <i class="fas fa-info-circle text-info me-1"></i> โหมดผู้ใช้ทั่วไป: ยื่นคำขอจองรถยนต์และติดตามผล (แก้ไขข้อมูลไม่ได้)
+                <i class="fas fa-info-circle text-info me-1"></i> ยินดีต้อนรับสู่ระบบขออนุญาตใช้รถยนต์ คณะวิทยาการจัดการ ม.นราธิวาสราชนครินทร์
             </div>
             <div>
                 <a href="login.php" class="btn btn-warning btn-sm py-0 px-2 fw-bold text-dark">
-                    <i class="fas fa-lock me-1"></i> เข้าสู่ระบบ Admin
+                    <i class="fas fa-sign-in-alt me-1"></i> เข้าสู่ระบบ (Login)
                 </a>
             </div>
         <?php endif; ?>
@@ -218,6 +232,11 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link <?= ($currentPage == 'users.php') ? 'active' : '' ?>" href="users.php">
+                            <i class="fas fa-users-gear me-1"></i> ผู้ใช้ & รหัสผ่าน
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link text-warning fw-bold <?= ($currentPage == 'admin.php') ? 'active' : '' ?>" href="admin.php">
                             <i class="fas fa-shield-halved me-1"></i> จัดการระบบ (Admin)
                         </a>
@@ -228,9 +247,9 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <a href="book.php" class="btn btn-gold btn-sm px-3 shadow-sm">
                     <i class="fas fa-plus-circle me-1"></i> จองรถใหม่
                 </a>
-                <?php if (!$isAdmin): ?>
+                <?php if (!$isLoggedIn): ?>
                     <a href="login.php" class="btn btn-outline-light btn-sm px-3">
-                        <i class="fas fa-sign-in-alt me-1"></i> เข้าสู่ระบบ Admin
+                        <i class="fas fa-sign-in-alt me-1"></i> เข้าสู่ระบบ
                     </a>
                 <?php endif; ?>
             </div>

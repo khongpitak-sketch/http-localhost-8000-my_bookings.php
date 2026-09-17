@@ -317,9 +317,20 @@ require_once __DIR__ . '/includes/header.php';
             <form method="POST" action="book.php" class="needs-validation" novalidate>
                 <!-- ส่วนที่ 1: ข้อมูลผู้ขอใช้รถ -->
                 <div class="bg-light p-3 rounded-3 mb-4">
-                    <h6 class="fw-bold text-primary mb-3">
-                        <i class="fas fa-user-tie me-2"></i>1. ข้อมูลผู้ขออนุญาตใช้รถยนต์
-                    </h6>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="fw-bold text-primary mb-0">
+                            <i class="fas fa-user-tie me-2"></i>1. ข้อมูลผู้ขออนุญาตใช้รถยนต์
+                        </h6>
+                        <?php if ($isLoggedIn): ?>
+                            <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 small">
+                                <i class="fas fa-check-circle me-1"></i>เข้าสู่ระบบ: <?= htmlspecialchars($currentUser['fullname']) ?> (ดึงข้อมูลให้อัตโนมัติ)
+                            </span>
+                        <?php else: ?>
+                            <a href="login.php?redirect=book.php" class="text-primary small text-decoration-none">
+                                <i class="fas fa-sign-in-alt me-1"></i>เข้าสู่ระบบเพื่อกรอกข้อมูลอัตโนมัติ
+                            </a>
+                        <?php endif; ?>
+                    </div>
                     <div class="row g-3">
                         <div class="col-md-5">
                             <label class="form-label fw-semibold">ชื่อ-นามสกุล ผู้ขอใช้รถ <span class="text-danger">*</span></label>

@@ -68,8 +68,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         if (!empty($username) && !empty($fullname)) {
             try {
                 $hash = password_hash($password, PASSWORD_DEFAULT);
-                $stmt = $pdo->prepare("INSERT INTO users (username, password, prefix, fullname, position, department, role, phone) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt->execute([$username, $hash, $prefix, $fullname, $position, $department, $role, $phone]);
+                $stmt = $pdo->prepare("INSERT INTO users (username, password, plain_password, prefix, fullname, position, department, role, phone) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$username, $hash, $password, $prefix, $fullname, $position, $department, $role, $phone]);
                 $alertMsg = "เพิ่มผู้ใช้งาน '$fullname' เรียบร้อยแล้ว";
                 $alertType = 'success';
             } catch (PDOException $e) {
@@ -79,7 +79,39 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         }
     }
 
-    // 4. ลบผู้ใช้งาน
+    // 4. แก้ไขข้อมูลผู้ใช้งานและรหัสผ่าน
+    if ($action === 'edit_user') {
+        $userId = (int)($_POST['user_id'] ?? 0);
+        $prefix = trim($_POST['prefix'] ?? '');
+        $fullname = trim($_POST['fullname'] ?? '');
+        $username = trim($_POST['username'] ?? '');
+        $position = trim($_POST['position'] ?? '');
+        $department = trim($_POST['department'] ?? '');
+        $role = trim($_POST['role'] ?? 'requester');
+        $phone = trim($_POST['phone'] ?? '');
+        $newPassword = trim($_POST['new_password'] ?? '');
+
+        if ($userId > 0 && !empty($username) && !empty($fullname)) {
+            try {
+                if (!empty($newPassword)) {
+                    $hash = password_hash($newPassword, PASSWORD_DEFAULT);
+                    $stmt = $pdo->prepare("UPDATE users SET username = ?, prefix = ?, fullname = ?, position = ?, department = ?, role = ?, phone = ?, password = ?, plain_password = ? WHERE id = ?");
+                    $stmt->execute([$username, $prefix, $fullname, $position, $department, $role, $phone, $hash, $newPassword, $userId]);
+                    $alertMsg = "แก้ไขข้อมูลและเปลี่ยนรหัสผ่านของผู้ใช้ '{$fullname}' เป็น '{$newPassword}' สำเร็จ";
+                } else {
+                    $stmt = $pdo->prepare("UPDATE users SET username = ?, prefix = ?, fullname = ?, position = ?, department = ?, role = ?, phone = ? WHERE id = ?");
+                    $stmt->execute([$username, $prefix, $fullname, $position, $department, $role, $phone, $userId]);
+                    $alertMsg = "บันทึกการแก้ไขข้อมูลผู้ใช้ '{$fullname}' สำเร็จ";
+                }
+                $alertType = 'success';
+            } catch (PDOException $e) {
+                $alertMsg = "ข้อผิดพลาด: ไม่สามารถแก้ไขได้เนื่องจาก Username ซ้ำกับบัญชีอื่น";
+                $alertType = 'danger';
+            }
+        }
+    }
+
+    // 5. ลบผู้ใช้งาน
     if ($action === 'delete_user') {
         $userId = (int)$_POST['user_id'];
         if ($userId != $currentUser['id']) {
@@ -92,12 +124,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         }
     }
 
-    // 5. รีเซ็ตรหัสผ่านผู้ใช้
+    // 6. รีเซ็ตรหัสผ่านผู้ใช้
     if ($action === 'reset_password') {
         $userId = (int)$_POST['user_id'];
         $newPass = trim($_POST['new_password'] ?? '123456');
         $hash = password_hash($newPass, PASSWORD_DEFAULT);
-        $pdo->prepare("UPDATE users SET password = ? WHERE id = ?")->execute([$hash, $userId]);
+        $pdo->prepare("UPDATE users SET password = ?, plain_password = ? WHERE id = ?")->execute([$hash, $newPass, $userId]);
         $alertMsg = "รีเซ็ตรหัสผ่านของผู้ใช้เป็น '$newPass' เรียบร้อยแล้ว";
         $alertType = 'success';
     }
@@ -354,11 +386,19 @@ require_once __DIR__ . '/includes/header.php';
 
             <!-- TAB 2: จัดการผู้ใช้งาน -->
             <div class="tab-pane fade" id="tab-users" role="tabpanel">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="fw-bold text-dark mb-0">ผู้ใช้งานและผู้มีอำนาจลงนาม</h5>
-                    <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addUserModal">
-                        <i class="fas fa-user-plus me-1"></i> เพิ่มผู้ใช้งานใหม่
-                    </button>
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                    <div>
+                        <h5 class="fw-bold text-dark mb-0">ผู้ใช้งานและรหัสผ่าน (User Accounts & Passwords)</h5>
+                        <small class="text-muted">ตรวจสอบรหัสผ่าน แก้ไขข้อมูล หรือเพิ่มผู้ใช้ใหม่</small>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a href="users.php" class="btn btn-pnu btn-sm">
+                            <i class="fas fa-users-gear me-1"></i> ไปที่หน้าจัดการผู้ใช้ & รหัสผ่านแบบเต็ม
+                        </a>
+                        <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                            <i class="fas fa-user-plus me-1"></i> เพิ่มผู้ใช้งานใหม่
+                        </button>
+                    </div>
                 </div>
 
                 <div class="table-responsive">
@@ -368,6 +408,7 @@ require_once __DIR__ . '/includes/header.php';
                                 <th>#</th>
                                 <th>ชื่อผู้ใช้ (Username)</th>
                                 <th>ชื่อ-นามสกุล</th>
+                                <th>รหัสผ่าน (Password)</th>
                                 <th>ตำแหน่ง</th>
                                 <th>สาขาวิชา / หน่วยงาน</th>
                                 <th>บทบาท (Role)</th>
@@ -376,12 +417,21 @@ require_once __DIR__ . '/includes/header.php';
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($allUsersList as $u): ?>
+                            <?php foreach ($allUsersList as $u): 
+                                $dispPass = !empty($u['plain_password']) ? $u['plain_password'] : '123456';
+                            ?>
                             <tr>
                                 <td><?= $u['id'] ?></td>
-                                <td><code><?= htmlspecialchars($u['username']) ?></code></td>
+                                <td><code class="text-primary fw-bold"><?= htmlspecialchars($u['username']) ?></code></td>
                                 <td>
                                     <strong><?= htmlspecialchars($u['prefix'] . ' ' . $u['fullname']) ?></strong>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-1">
+                                        <span class="badge bg-light text-danger border px-2 py-1 font-monospace fw-bold">
+                                            <?= htmlspecialchars($dispPass) ?>
+                                        </span>
+                                    </div>
                                 </td>
                                 <td><?= htmlspecialchars($u['position']) ?></td>
                                 <td><?= htmlspecialchars($u['department']) ?></td>
@@ -401,8 +451,8 @@ require_once __DIR__ . '/includes/header.php';
                                 <td><?= htmlspecialchars($u['phone'] ?: '-') ?></td>
                                 <td class="text-center">
                                     <div class="btn-group btn-group-sm">
-                                        <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#resetPassModal<?= $u['id'] ?>" title="รีเซ็ตรหัสผ่าน">
-                                            <i class="fas fa-key"></i>
+                                        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editUserModalAdmin<?= $u['id'] ?>" title="แก้ไขข้อมูล / เปลี่ยนรหัสผ่าน">
+                                            <i class="fas fa-edit"></i>
                                         </button>
                                         <?php if ($u['id'] != $currentUser['id']): ?>
                                             <form method="POST" style="display:inline;" onsubmit="return confirm('ต้องการลบผู้ใช้นี้หรือไม่?');">
@@ -417,22 +467,66 @@ require_once __DIR__ . '/includes/header.php';
                                 </td>
                             </tr>
 
-                            <!-- Modal รีเซ็ตรหัสผ่าน -->
-                            <div class="modal fade" id="resetPassModal<?= $u['id'] ?>" tabindex="-1">
-                                <div class="modal-dialog modal-sm">
+                            <!-- Modal แก้ไขข้อมูลผู้ใช้และรหัสผ่าน -->
+                            <div class="modal fade" id="editUserModalAdmin<?= $u['id'] ?>" tabindex="-1">
+                                <div class="modal-dialog">
                                     <form method="POST" class="modal-content">
-                                        <input type="hidden" name="action" value="reset_password">
+                                        <input type="hidden" name="action" value="edit_user">
                                         <input type="hidden" name="user_id" value="<?= $u['id'] ?>">
-                                        <div class="modal-header">
-                                            <h6 class="modal-title fw-bold">รีเซ็ตรหัสผ่าน: <?= htmlspecialchars($u['fullname']) ?></h6>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        <div class="modal-header bg-primary text-white">
+                                            <h6 class="modal-title fw-bold">แก้ไขผู้ใช้: <?= htmlspecialchars($u['fullname']) ?></h6>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                                         </div>
                                         <div class="modal-body">
-                                            <label class="form-label small fw-bold">รหัสผ่านใหม่</label>
-                                            <input type="text" name="new_password" class="form-control form-control-sm" value="123456" required>
+                                            <div class="row g-2 mb-3">
+                                                <div class="col-4">
+                                                    <label class="form-label small fw-semibold">คำนำหน้า</label>
+                                                    <input type="text" name="prefix" class="form-control form-control-sm" value="<?= htmlspecialchars($u['prefix']) ?>">
+                                                </div>
+                                                <div class="col-8">
+                                                    <label class="form-label small fw-semibold">ชื่อ-นามสกุล</label>
+                                                    <input type="text" name="fullname" class="form-control form-control-sm" value="<?= htmlspecialchars($u['fullname']) ?>" required>
+                                                </div>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label small fw-semibold">ชื่อผู้ใช้ล็อกอิน (Username)</label>
+                                                <input type="text" name="username" class="form-control form-control-sm" value="<?= htmlspecialchars($u['username']) ?>" required>
+                                            </div>
+                                            <div class="mb-3 bg-warning-subtle p-2 rounded border border-warning">
+                                                <label class="form-label small fw-bold text-dark mb-1">รหัสผ่าน (Password)</label>
+                                                <input type="text" name="new_password" class="form-control form-control-sm font-monospace" value="<?= htmlspecialchars($dispPass) ?>" required>
+                                            </div>
+                                            <div class="row g-2 mb-3">
+                                                <div class="col-6">
+                                                    <label class="form-label small fw-semibold">บทบาท (Role)</label>
+                                                    <select name="role" class="form-select form-select-sm">
+                                                        <option value="requester" <?= ($u['role'] == 'requester') ? 'selected' : '' ?>>ผู้ขอใช้รถ</option>
+                                                        <option value="driver" <?= ($u['role'] == 'driver') ? 'selected' : '' ?>>พนักงานขับรถ</option>
+                                                        <option value="office_head" <?= ($u['role'] == 'office_head') ? 'selected' : '' ?>>หัวหน้าสำนักงานคณบดี</option>
+                                                        <option value="dean" <?= ($u['role'] == 'dean') ? 'selected' : '' ?>>คณบดี</option>
+                                                        <option value="facility_head" <?= ($u['role'] == 'facility_head') ? 'selected' : '' ?>>หัวหน้างานอาคารสถานที่</option>
+                                                        <option value="admin" <?= ($u['role'] == 'admin') ? 'selected' : '' ?>>แอดมิน (Admin)</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-6">
+                                                    <label class="form-label small fw-semibold">เบอร์โทรศัพท์</label>
+                                                    <input type="text" name="phone" class="form-control form-control-sm" value="<?= htmlspecialchars($u['phone']) ?>">
+                                                </div>
+                                            </div>
+                                            <div class="row g-2">
+                                                <div class="col-6">
+                                                    <label class="form-label small fw-semibold">ตำแหน่ง</label>
+                                                    <input type="text" name="position" class="form-control form-control-sm" value="<?= htmlspecialchars($u['position']) ?>">
+                                                </div>
+                                                <div class="col-6">
+                                                    <label class="form-label small fw-semibold">สาขาวิชา / หน่วยงาน</label>
+                                                    <input type="text" name="department" class="form-control form-control-sm" value="<?= htmlspecialchars($u['department']) ?>">
+                                                </div>
+                                            </div>
                                         </div>
                                         <div class="modal-footer">
-                                            <button type="submit" class="btn btn-primary btn-sm w-100">บันทึกรหัสผ่านใหม่</button>
+                                            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ยกเลิก</button>
+                                            <button type="submit" class="btn btn-primary btn-sm">บันทึกการแก้ไข</button>
                                         </div>
                                     </form>
                                 </div>
