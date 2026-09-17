@@ -171,11 +171,11 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             </div>
         <?php else: ?>
             <div class="small text-light">
-                <i class="fas fa-info-circle text-info me-1"></i> ยินดีต้อนรับสู่ระบบขออนุญาตใช้รถยนต์ คณะวิทยาการจัดการ ม.นราธิวาสราชนครินทร์
+                <i class="fas fa-eye text-warning me-1"></i> <strong>โหมดดูข้อมูลทั่วไป (ดูได้อย่างเดียว):</strong> ต้องเข้าสู่ระบบก่อนจึงจะสามารถยื่นขอใช้รถยนต์ได้
             </div>
             <div>
-                <a href="login.php" class="btn btn-warning btn-sm py-0 px-2 fw-bold text-dark">
-                    <i class="fas fa-sign-in-alt me-1"></i> เข้าสู่ระบบ (Login)
+                <a href="login.php?redirect=book.php&login_required=1" class="btn btn-warning btn-sm py-0 px-2 fw-bold text-dark">
+                    <i class="fas fa-sign-in-alt me-1"></i> เข้าสู่ระบบก่อนจองรถ
                 </a>
             </div>
         <?php endif; ?>
@@ -205,7 +205,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link <?= ($currentPage == 'book.php') ? 'active' : '' ?>" href="book.php">
+                    <a class="nav-link <?= ($currentPage == 'book.php') ? 'active' : '' ?>" href="<?= $isLoggedIn ? 'book.php' : 'login.php?redirect=book.php&login_required=1' ?>">
                         <i class="fas fa-calendar-plus me-1"></i> ยื่นขอใช้รถยนต์
                     </a>
                 </li>
@@ -244,10 +244,14 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <?php endif; ?>
             </ul>
             <div class="d-flex align-items-center gap-2">
-                <a href="book.php" class="btn btn-gold btn-sm px-3 shadow-sm">
-                    <i class="fas fa-plus-circle me-1"></i> จองรถใหม่
-                </a>
-                <?php if (!$isLoggedIn): ?>
+                <?php if ($isLoggedIn): ?>
+                    <a href="book.php" class="btn btn-gold btn-sm px-3 shadow-sm">
+                        <i class="fas fa-plus-circle me-1"></i> จองรถใหม่
+                    </a>
+                <?php else: ?>
+                    <a href="login.php?redirect=book.php&login_required=1" class="btn btn-gold btn-sm px-3 shadow-sm">
+                        <i class="fas fa-lock me-1"></i> เข้าสู่ระบบเพื่อจองรถ
+                    </a>
                     <a href="login.php" class="btn btn-outline-light btn-sm px-3">
                         <i class="fas fa-sign-in-alt me-1"></i> เข้าสู่ระบบ
                     </a>

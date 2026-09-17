@@ -44,6 +44,25 @@ foreach ($eventsData as $ev) {
 }
 ?>
 
+<?php if (!$isLoggedIn): ?>
+<div class="alert alert-primary border-primary d-flex flex-wrap align-items-center justify-content-between p-3 rounded-3 shadow-sm mb-4 gap-3">
+    <div class="d-flex align-items-center">
+        <div class="bg-primary text-white p-2 rounded-circle me-3 d-flex align-items-center justify-content-center" style="width: 42px; height: 42px;">
+            <i class="fas fa-eye fs-5"></i>
+        </div>
+        <div>
+            <div class="fw-bold text-dark">โหมดดูข้อมูลทั่วไป (ดูได้อย่างเดียว)</div>
+            <div class="small text-secondary">คุณสามารถตรวจสอบปฏิทินตารางการใช้รถและรายการคำขอได้ หากต้องการยื่นคำขอจองรถยนต์ กรุณาเข้าสู่ระบบก่อนทำรายการ</div>
+        </div>
+    </div>
+    <div>
+        <a href="login.php?redirect=book.php&login_required=1" class="btn btn-primary btn-sm px-3 fw-semibold shadow-sm text-nowrap">
+            <i class="fas fa-sign-in-alt me-1"></i> เข้าสู่ระบบก่อนจองรถ
+        </a>
+    </div>
+</div>
+<?php endif; ?>
+
 <div class="row g-3 mb-4">
     <!-- กล่องสถิติ -->
     <div class="col-md-3 col-sm-6">

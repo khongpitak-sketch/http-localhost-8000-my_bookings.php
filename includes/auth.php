@@ -25,7 +25,7 @@ function requireLogin() {
     global $isLoggedIn;
     if (!$isLoggedIn) {
         $redirect = urlencode($_SERVER['REQUEST_URI'] ?? 'index.php');
-        header("Location: login.php?redirect=$redirect");
+        header("Location: login.php?redirect=$redirect&login_required=1");
         exit;
     }
 }

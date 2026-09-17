@@ -3,6 +3,9 @@
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/includes/auth.php';
 
+// ผู้ใช้ต้องเข้าสู่ระบบก่อนเท่านั้นจึงจะสามารถจองรถได้
+requireLogin();
+
 $vehicles = $pdo->query("SELECT * FROM vehicles WHERE status = 'active'")->fetchAll();
 $error = '';
 $success = '';

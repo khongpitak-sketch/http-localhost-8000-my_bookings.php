@@ -158,6 +158,13 @@ if ($failedAttempts >= 5 && (time() - $lastFailedTime) < 300) {
     </div>
 
     <div class="p-4">
+        <?php if (isset($_GET['login_required'])): ?>
+            <div class="alert alert-warning alert-dismissible fade show small" role="alert">
+                <i class="fas fa-lock me-1"></i> <strong>กรุณาเข้าสู่ระบบก่อน:</strong> ท่านจำเป็นต้องเข้าสู่ระบบก่อนจึงจะสามารถยื่นคำขอจองรถยนต์ได้
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        <?php endif; ?>
+
         <?php if ($error): ?>
             <div class="alert alert-danger alert-dismissible fade show small" role="alert">
                 <i class="fas fa-exclamation-circle me-1"></i> <?= htmlspecialchars($error) ?>
