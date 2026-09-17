@@ -54,6 +54,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $alertType = 'success';
     }
 
+    // 2.1 ล้างคำขอทั้งหมดเพื่อเริ่มต้นใช้งานจริง (Clear/Reset all test bookings)
+    if ($action === 'clear_all_bookings') {
+        $pdo->exec("DELETE FROM approvals");
+        $pdo->exec("DELETE FROM bookings");
+        $pdo->exec("DELETE FROM sqlite_sequence WHERE name IN ('bookings', 'approvals')");
+        $alertMsg = "ล้างข้อมูลคำขอทั้งหมดเรียบร้อยแล้ว ระบบอยู่ในสถานะเริ่มต้นพร้อมใช้งานจริง (0 คำขอ)";
+        $alertType = 'success';
+    }
+
     // 3. เพิ่มผู้ใช้ใหม่
     if ($action === 'add_user') {
         $username = trim($_POST['username'] ?? '');
@@ -189,9 +198,11 @@ require_once __DIR__ . '/includes/header.php';
         </span>
     </div>
     <div class="d-flex gap-2">
-        <a href="print_form.php?id=<?= $allBookings[0]['id'] ?? 1 ?>" target="_blank" class="btn btn-outline-secondary btn-sm">
+        <?php if (!empty($allBookings)): ?>
+        <a href="print_form.php?id=<?= $allBookings[0]['id'] ?>" target="_blank" class="btn btn-outline-secondary btn-sm">
             <i class="fas fa-file-invoice me-1"></i> ตัวอย่างเอกสาร A4
         </a>
+        <?php endif; ?>
         <a href="book.php" class="btn btn-pnu btn-sm">
             <i class="fas fa-plus me-1"></i> จองรถใหม่
         </a>
@@ -271,9 +282,21 @@ require_once __DIR__ . '/includes/header.php';
             
             <!-- TAB 1: จัดการคำขอทั้งหมด -->
             <div class="tab-pane fade show active" id="tab-bookings" role="tabpanel">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="fw-bold text-dark mb-0">รายการคำขอทั้งหมดในระบบ</h5>
-                    <div class="text-muted small">แอดมินสามารถเปลี่ยนสถานะด่วนหรือลบรายการทดสอบได้</div>
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                    <div>
+                        <h5 class="fw-bold text-dark mb-0">รายการคำขอทั้งหมดในระบบ</h5>
+                        <div class="text-muted small">แอดมินสามารถเปลี่ยนสถานะด่วนหรือลบรายการได้</div>
+                    </div>
+                    <?php if (!empty($allBookings)): ?>
+                    <div>
+                        <form method="POST" onsubmit="return confirm('⚠️ ยืนยันล้างข้อมูลคำขอทั้งหมดในระบบ?\nข้อมูลคำขอและการอนุมัติทั้งหมดจะถูกลบเพื่อเริ่มต้นใช้งานจริง');" class="d-inline">
+                            <input type="hidden" name="action" value="clear_all_bookings">
+                            <button type="submit" class="btn btn-outline-danger btn-sm">
+                                <i class="fas fa-trash-can me-1"></i> ล้างคำขอทดสอบทั้งหมด (เริ่มระบบจริง)
+                            </button>
+                        </form>
+                    </div>
+                    <?php endif; ?>
                 </div>
 
                 <div class="table-responsive">
@@ -290,6 +313,22 @@ require_once __DIR__ . '/includes/header.php';
                             </tr>
                         </thead>
                         <tbody>
+                            <?php if (empty($allBookings)): ?>
+                            <tr>
+                                <td colspan="7" class="text-center py-5">
+                                    <div class="py-4">
+                                        <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3 shadow-sm" style="width: 70px; height: 70px;">
+                                            <i class="fas fa-calendar-check fs-2 text-success"></i>
+                                        </div>
+                                        <h5 class="fw-bold text-dark">ระบบอยู่ในสถานะจริงพร้อมใช้งาน (ไม่มีคำขอค้างในระบบ)</h5>
+                                        <p class="text-muted small mb-3">ยังไม่มีการยื่นคำขอจองรถยนต์ เมื่อบุคลากรทำการยื่นขอใช้รถ รายการจะปรากฏที่นี่ทันที</p>
+                                        <a href="book.php" class="btn btn-pnu btn-sm px-3">
+                                            <i class="fas fa-plus me-1"></i> จองรถใหม่
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            <?php else: ?>
                             <?php foreach ($allBookings as $b): ?>
                             <tr>
                                 <td>
@@ -379,6 +418,7 @@ require_once __DIR__ . '/includes/header.php';
                                 </td>
                             </tr>
                             <?php endforeach; ?>
+                            <?php endif; ?>
                         </tbody>
                     </table>
                 </div>
