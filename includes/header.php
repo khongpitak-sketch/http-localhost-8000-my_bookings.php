@@ -9,7 +9,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ระบบขออนุญาตใช้รถยนต์ - คณะวิทยาการจัดการ มหาวิทยาลัยนราธิวาสราชนครินทร์</title>
+    <title>ระบบขออนุญาตใช้รถยนต์ (v<?= APP_VERSION ?>) - คณะวิทยาการจัดการ มหาวิทยาลัยนราธิวาสราชนครินทร์</title>
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome Icons -->
@@ -190,7 +190,10 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <img src="assets/pnu_emblem.png" alt="PNU Emblem" style="height: 38px; width: auto;">
             </div>
             <div>
-                <div class="fw-bold fs-6 lh-1">ระบบขออนุญาตใช้รถยนต์</div>
+                <div class="fw-bold fs-6 lh-1 d-flex align-items-center gap-2">
+                    <span>ระบบขออนุญาตใช้รถยนต์</span>
+                    <span class="badge bg-warning text-dark px-1 py-0 shadow-sm" style="font-size: 0.65rem; font-weight: 700; border-radius: 4px;">v<?= APP_VERSION ?></span>
+                </div>
                 <small class="text-light opacity-75" style="font-size: 0.75rem;">คณะวิทยาการจัดการ มหาวิทยาลัยนราธิวาสราชนครินทร์</small>
             </div>
         </a>

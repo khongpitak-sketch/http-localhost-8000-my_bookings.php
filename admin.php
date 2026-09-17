@@ -182,7 +182,7 @@ require_once __DIR__ . '/includes/header.php';
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h3 class="fw-bold text-dark mb-1">
-            <i class="fas fa-shield-halved text-primary me-2"></i>แผงควบคุมระบบ (Administrator Panel)
+            <i class="fas fa-shield-halved text-primary me-2"></i>แผงควบคุมระบบ (Administrator Panel) <span class="badge bg-secondary fs-6 fw-normal ms-1">v<?= APP_VERSION ?></span>
         </h3>
         <span class="text-muted">
             คณะวิทยาการจัดการ มหาวิทยาลัยนราธิวาสราชนครินทร์ | จัดการคำขอ, ยานพาหนะ, ผู้ใช้งาน และรายงานสถิติ

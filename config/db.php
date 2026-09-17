@@ -2,6 +2,12 @@
 // config/db.php - การตั้งค่าและเชื่อมต่อฐานข้อมูล
 date_default_timezone_set('Asia/Bangkok');
 
+// ระบบเวอร์ชัน (System Version)
+if (!defined('APP_VERSION')) {
+    define('APP_VERSION', '2.0');
+    define('APP_VERSION_FULL', 'Version 2.0 (Build 2026)');
+}
+
 // ตรวจสอบสภาพแวดล้อม Vercel Serverless
 $isVercel = (getenv('VERCEL') || isset($_ENV['VERCEL']) || isset($_SERVER['VERCEL']));
 if ($isVercel) {

@@ -153,7 +153,7 @@ if ($failedAttempts >= 5 && (time() - $lastFailedTime) < 300) {
             <img src="assets/pnu_emblem.png" alt="PNU Logo" style="height: 75px; width: auto;">
         </div>
         <h5 class="fw-bold text-dark mb-1">เข้าสู่ระบบ (Login)</h5>
-        <div class="text-primary fw-semibold small">ระบบขออนุญาตใช้รถยนต์</div>
+        <div class="text-primary fw-semibold small">ระบบขออนุญาตใช้รถยนต์ <span class="badge bg-secondary text-white ms-1" style="font-size: 0.65rem;">v<?= defined('APP_VERSION') ? APP_VERSION : '2.0' ?></span></div>
         <div class="text-muted small">คณะวิทยาการจัดการ มหาวิทยาลัยนราธิวาสราชนครินทร์</div>
     </div>
 
@@ -211,6 +211,9 @@ if ($failedAttempts >= 5 && (time() - $lastFailedTime) < 300) {
                 <a href="index.php" class="text-decoration-none small text-muted">
                     <i class="fas fa-arrow-left me-1"></i> กลับหน้าหลักระบบ
                 </a>
+                <div class="text-muted opacity-75 mt-2" style="font-size: 0.72rem;">
+                    <?= defined('APP_VERSION_FULL') ? APP_VERSION_FULL : 'Version 2.0' ?>
+                </div>
             </div>
         </form>
     </div>

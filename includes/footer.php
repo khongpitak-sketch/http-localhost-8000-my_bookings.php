@@ -2,8 +2,13 @@
 
 <footer class="bg-white border-top py-3 mt-auto">
     <div class="container text-center text-muted small">
-        <div>ระบบขออนุญาตใช้รถยนต์ คณะวิทยาการจัดการ มหาวิทยาลัยนราธิวาสราชนครินทร์</div>
+        <div class="fw-semibold">ระบบขออนุญาตใช้รถยนต์ คณะวิทยาการจัดการ มหาวิทยาลัยนราธิวาสราชนครินทร์</div>
         <div>Princess of Naradhiwas University - Faculty of Management Sciences</div>
+        <div class="mt-1">
+            <span class="badge bg-light text-secondary border px-2 py-1" style="font-weight: 500;">
+                <i class="fas fa-code-branch me-1 text-primary"></i><?= defined('APP_VERSION_FULL') ? APP_VERSION_FULL : 'Version 2.0' ?>
+            </span>
+        </div>
     </div>
 </footer>
 
