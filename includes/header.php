@@ -206,7 +206,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                         <a class="nav-link <?= ($currentPage == 'approvals.php') ? 'active' : '' ?>" href="approvals.php">
                             <i class="fas fa-signature me-1"></i> ศูนย์พิจารณาอนุมัติ
                             <?php
-                            $pendingCount = (int)$pdo->query("SELECT COUNT(*) FROM bookings WHERE status LIKE 'pending_%'")->fetchColumn();
+                            $pendingCount = (int)$pdo->query("SELECT COUNT(*) FROM bookings WHERE status LIKE 'pending_%' AND (is_flagged_fake IS NULL OR is_flagged_fake = 0)")->fetchColumn();
                             if ($pendingCount > 0): ?>
                                 <span class="badge bg-danger rounded-pill ms-1"><?= $pendingCount ?></span>
                             <?php endif; ?>

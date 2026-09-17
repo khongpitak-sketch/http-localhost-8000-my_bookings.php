@@ -18,17 +18,20 @@ if (isset($_GET['cancel_id'])) {
 
 $searchQuery = trim($_GET['q'] ?? '');
 
-// ดึงรายการคำขอ
+// ดึงรายการคำขอ (ผู้ใช้ทั่วไปจะไม่เห็นคำขอที่ถูกระงับเนื่องจากเป็นข้อมูลเท็จ/สแปม)
+$fraudFilter = (!$isAdmin) ? " AND (b.status != 'rejected_fraud' AND (b.is_flagged_fake IS NULL OR b.is_flagged_fake = 0))" : "";
+
 if (!empty($searchQuery)) {
     $stmt = $pdo->prepare("
         SELECT b.*, v.brand_model, v.vehicle_type 
         FROM bookings b 
         JOIN vehicles v ON b.vehicle_id = v.id 
-        WHERE b.doc_no LIKE ? 
+        WHERE (b.doc_no LIKE ? 
            OR b.requester_name LIKE ? 
            OR b.requester_department LIKE ?
            OR b.route_to LIKE ?
-           OR b.purpose LIKE ?
+           OR b.purpose LIKE ?)
+           $fraudFilter
         ORDER BY b.id DESC
     ");
     $term = '%' . $searchQuery . '%';
@@ -38,6 +41,7 @@ if (!empty($searchQuery)) {
         SELECT b.*, v.brand_model, v.vehicle_type 
         FROM bookings b 
         JOIN vehicles v ON b.vehicle_id = v.id 
+        WHERE 1=1 $fraudFilter
         ORDER BY b.id DESC
     ");
 }

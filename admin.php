@@ -33,6 +33,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             ")->execute([$bookingId]);
         }
 
+        // หากตั้งเป็น rejected_fraud (ข้อมูลเท็จ/สแปม)
+        if ($newStatus === 'rejected_fraud') {
+            $pdo->prepare("UPDATE bookings SET is_flagged_fake = 1, fake_reason = 'ผู้ดูแลระบบระบุว่าเป็นข้อมูลเท็จ' WHERE id = ?")->execute([$bookingId]);
+            $pdo->prepare("UPDATE approvals SET facility_status = 'rejected', facility_comment = 'ผู้ดูแลระบบระบุว่าเป็นข้อมูลเท็จ' WHERE booking_id = ?")->execute([$bookingId]);
+        } elseif ($newStatus === 'pending_facility') {
+            $pdo->prepare("UPDATE bookings SET is_flagged_fake = 0, fake_reason = NULL WHERE id = ?")->execute([$bookingId]);
+        }
+
         $alertMsg = "ปรับปรุงสถานะคำขอ #$bookingId เป็น '$newStatus' สำเร็จ";
         $alertType = 'success';
     }
@@ -315,6 +323,14 @@ require_once __DIR__ . '/includes/header.php';
                                                         <input type="hidden" name="booking_id" value="<?= $b['id'] ?>">
                                                         <input type="hidden" name="new_status" value="rejected">
                                                         <button type="submit" class="dropdown-item text-danger"><i class="fas fa-times-circle me-1"></i> ไม่เห็นชอบ / ไม่อนุมัติ</button>
+                                                    </form>
+                                                </li>
+                                                <li>
+                                                    <form method="POST">
+                                                        <input type="hidden" name="action" value="change_booking_status">
+                                                        <input type="hidden" name="booking_id" value="<?= $b['id'] ?>">
+                                                        <input type="hidden" name="new_status" value="rejected_fraud">
+                                                        <button type="submit" class="dropdown-item text-danger fw-semibold"><i class="fas fa-shield-virus me-1"></i> ปฏิเสธ (ข้อมูลเท็จ / สแปม)</button>
                                                     </form>
                                                 </li>
                                                 <li><hr class="dropdown-divider"></li>

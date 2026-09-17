@@ -118,6 +118,38 @@ CREATE TABLE IF NOT EXISTS approvals (
 );
 ");
 
+// อัปเกรดคอลัมน์ความปลอดภัยในตาราง bookings (หากยังไม่มี)
+try {
+    $existingCols = $pdo->query("PRAGMA table_info(bookings)")->fetchAll(PDO::FETCH_COLUMN, 1);
+    if (!in_array('client_ip', $existingCols)) {
+        $pdo->exec("ALTER TABLE bookings ADD COLUMN client_ip TEXT");
+    }
+    if (!in_array('user_agent', $existingCols)) {
+        $pdo->exec("ALTER TABLE bookings ADD COLUMN user_agent TEXT");
+    }
+    if (!in_array('is_flagged_fake', $existingCols)) {
+        $pdo->exec("ALTER TABLE bookings ADD COLUMN is_flagged_fake INTEGER DEFAULT 0");
+    }
+    if (!in_array('fake_reason', $existingCols)) {
+        $pdo->exec("ALTER TABLE bookings ADD COLUMN fake_reason TEXT");
+    }
+} catch (Exception $e) {
+    // ข้ามกรณีมีคอลัมน์อยู่แล้ว
+}
+
+// ฟังก์ชันดึง Client IP Address จริง
+if (!function_exists('getClientIP')) {
+    function getClientIP() {
+        if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) return $_SERVER['HTTP_CF_CONNECTING_IP'];
+        if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+            $ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
+            return trim($ips[0]);
+        }
+        if (!empty($_SERVER['HTTP_X_REAL_IP'])) return $_SERVER['HTTP_X_REAL_IP'];
+        return $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+    }
+}
+
 // ใส่ข้อมูลเริ่มต้น (Seed Data) เมื่อสร้างฐานข้อมูลใหม่
 $userCount = $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
 if ($userCount == 0) {
@@ -258,6 +290,8 @@ function getStatusBadge($status) {
             return '<span class="badge bg-success"><i class="fas fa-check-circle me-1"></i> เห็นชอบแล้ว (พร้อมพิมพ์เสนอต่อ)</span>';
         case 'rejected':
             return '<span class="badge bg-danger"><i class="fas fa-times-circle me-1"></i> ไม่เห็นชอบ</span>';
+        case 'rejected_fraud':
+            return '<span class="badge bg-danger text-white"><i class="fas fa-shield-virus me-1"></i> ปฏิเสธ (ข้อมูลเท็จ/สแปม)</span>';
         case 'cancelled':
             return '<span class="badge bg-dark"><i class="fas fa-ban me-1"></i> ยกเลิก</span>';
         default:

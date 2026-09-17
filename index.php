@@ -3,27 +3,28 @@
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/includes/header.php';
 
-// ดึงสถิติ
-$totalBookings = $pdo->query("SELECT COUNT(*) FROM bookings")->fetchColumn();
-$pendingBookings = $pdo->query("SELECT COUNT(*) FROM bookings WHERE status LIKE 'pending_%'")->fetchColumn();
-$approvedBookings = $pdo->query("SELECT COUNT(*) FROM bookings WHERE status = 'completed'")->fetchColumn();
+// ดึงสถิติ (ไม่รวมคำขอเท็จ/สแปม)
+$totalBookings = $pdo->query("SELECT COUNT(*) FROM bookings WHERE status != 'rejected_fraud' AND (is_flagged_fake IS NULL OR is_flagged_fake = 0)")->fetchColumn();
+$pendingBookings = $pdo->query("SELECT COUNT(*) FROM bookings WHERE status LIKE 'pending_%' AND (is_flagged_fake IS NULL OR is_flagged_fake = 0)")->fetchColumn();
+$approvedBookings = $pdo->query("SELECT COUNT(*) FROM bookings WHERE status IN ('approved', 'completed')")->fetchColumn();
 $totalVehicles = $pdo->query("SELECT COUNT(*) FROM vehicles WHERE status = 'active'")->fetchColumn();
 
-// ดึงรายการคำขอล่าสุด 5 รายการ
+// ดึงรายการคำขอล่าสุด (ไม่รวมคำขอเท็จ/สแปม)
 $recentBookings = $pdo->query("
     SELECT b.*, v.brand_model 
     FROM bookings b 
     JOIN vehicles v ON b.vehicle_id = v.id 
+    WHERE b.status != 'rejected_fraud' AND (b.is_flagged_fake IS NULL OR b.is_flagged_fake = 0)
     ORDER BY b.id DESC 
     LIMIT 6
 ")->fetchAll();
 
-// ดึงรายการคำขอทั้งหมดสำหรับส่งเข้าปฏิทิน FullCalendar
+// ดึงรายการคำขอทั้งหมดสำหรับส่งเข้าปฏิทิน FullCalendar (ไม่รวมคำขอยกเลิกและคำขอเท็จ)
 $calendarEvents = [];
 $eventsData = $pdo->query("
     SELECT b.id, b.doc_no, b.purpose, b.plate_number, b.requester_name, b.start_datetime, b.end_datetime, b.status 
     FROM bookings b 
-    WHERE b.status != 'cancelled' AND b.status != 'rejected'
+    WHERE b.status NOT IN ('cancelled', 'rejected', 'rejected_fraud') AND (b.is_flagged_fake IS NULL OR b.is_flagged_fake = 0)
 ")->fetchAll();
 
 foreach ($eventsData as $ev) {

@@ -59,10 +59,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action_type']
         exit;
     }
 
+    // ปฏิเสธคำขอเนื่องจากเป็นข้อมูลเท็จ / สแปม
+    if ($actionType === 'reject_fraud') {
+        $fakeReason = trim($_POST['fake_reason'] ?? 'ข้อมูลเท็จ / สแปม');
+        $pdo->prepare("UPDATE bookings SET status = 'rejected_fraud', is_flagged_fake = 1, fake_reason = ? WHERE id = ?")->execute([$fakeReason, $bookingId]);
+        $pdo->prepare("UPDATE approvals SET facility_status = 'rejected', facility_comment = ? WHERE booking_id = ?")->execute(['ปฏิเสธเนื่องจากเป็นข้อมูลเท็จ: ' . $fakeReason, $bookingId]);
+        header("Location: booking_detail.php?id=$bookingId&msg=fraud_rejected");
+        exit;
+    }
+
     // ยกเลิกผลการพิจารณาเพื่อแก้ไขใหม่
     if ($actionType === 'revert_facility') {
-        $pdo->prepare("UPDATE bookings SET status = 'pending_facility' WHERE id = ?")->execute([$bookingId]);
-        $pdo->prepare("UPDATE approvals SET facility_status = NULL, facility_signed_at = NULL WHERE booking_id = ?")->execute([$bookingId]);
+        $pdo->prepare("UPDATE bookings SET status = 'pending_facility', is_flagged_fake = 0, fake_reason = NULL WHERE id = ?")->execute([$bookingId]);
+        $pdo->prepare("UPDATE approvals SET facility_status = NULL, facility_signed_at = NULL, facility_comment = NULL WHERE booking_id = ?")->execute([$bookingId]);
         header("Location: booking_detail.php?id=$bookingId&msg=reset");
         exit;
     }
@@ -84,6 +93,13 @@ require_once __DIR__ . '/includes/header.php';
 <?php if (isset($_GET['msg']) && $_GET['msg'] == 'saved'): ?>
 <div class="alert alert-info alert-dismissible fade show" role="alert">
     <i class="fas fa-info-circle me-2"></i> บันทึกผลการพิจารณาเรียบร้อยแล้ว
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+<?php endif; ?>
+
+<?php if (isset($_GET['msg']) && $_GET['msg'] == 'fraud_rejected'): ?>
+<div class="alert alert-danger alert-dismissible fade show" role="alert">
+    <i class="fas fa-shield-virus me-2"></i> ปฏิเสธคำขอนี้เนื่องจากเป็นข้อมูลเท็จ/สแปม เรียบร้อยแล้ว (ปลดออกจากปฏิทินและตารางงานแล้ว)
     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
 </div>
 <?php endif; ?>
@@ -155,6 +171,38 @@ require_once __DIR__ . '/includes/header.php';
                 </table>
             </div>
         </div>
+
+        <?php if ($isAdmin): ?>
+        <!-- กล่องข้อมูลความปลอดภัยและการตรวจสอบ (Audit & Security Info) -->
+        <div class="card card-custom p-3 mb-4 border-start border-4 border-info bg-light">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="fw-bold mb-0 text-dark">
+                    <i class="fas fa-shield-alt text-info me-2"></i>ข้อมูลความปลอดภัยและการตรวจสอบ (Security & Audit)
+                </h6>
+                <?php if (!empty($booking['is_flagged_fake']) || $booking['status'] === 'rejected_fraud'): ?>
+                    <span class="badge bg-danger"><i class="fas fa-exclamation-triangle me-1"></i> ข้อมูลเท็จ / สแปม</span>
+                <?php else: ?>
+                    <span class="badge bg-success"><i class="fas fa-check-shield me-1"></i> ผ่านการตรวจสอบ</span>
+                <?php endif; ?>
+            </div>
+            <div class="row g-2 small">
+                <div class="col-sm-6">
+                    <strong>IP Address:</strong> <code><?= htmlspecialchars($booking['client_ip'] ?? 'Local/N/A') ?></code>
+                </div>
+                <div class="col-sm-6">
+                    <strong>ประเภทผู้ยื่น:</strong> <?= (!empty($booking['user_id'])) ? '<span class="text-success fw-semibold">สมาชิกในระบบ (ID: ' . $booking['user_id'] . ')</span>' : '<span class="text-muted">บุคคลภายนอก (ผ่าน Math Captcha)</span>' ?>
+                </div>
+                <div class="col-12 text-truncate" title="<?= htmlspecialchars($booking['user_agent'] ?? '-') ?>">
+                    <strong>อุปกรณ์/เบราว์เซอร์:</strong> <?= htmlspecialchars($booking['user_agent'] ?? '-') ?>
+                </div>
+                <?php if (!empty($booking['fake_reason'])): ?>
+                <div class="col-12 text-danger">
+                    <strong>เหตุผลที่ระบุว่าเท็จ:</strong> <?= htmlspecialchars($booking['fake_reason']) ?>
+                </div>
+                <?php endif; ?>
+            </div>
+        </div>
+        <?php endif; ?>
 
         <!-- กล่องขั้นตอนการพิจารณาและการเสนอเอกสาร -->
         <div class="card card-custom p-4">
@@ -338,6 +386,12 @@ require_once __DIR__ . '/includes/header.php';
                         <button type="submit" class="btn btn-success w-100 py-2 fw-bold shadow-sm">
                             <i class="fas fa-check-circle me-1"></i> บันทึกเห็นชอบและเปิดให้พิมพ์เสนอต่อ
                         </button>
+
+                        <div class="mt-3 pt-2 border-top">
+                            <button type="button" class="btn btn-outline-danger btn-sm w-100" data-bs-toggle="modal" data-bs-target="#modalRejectFraud">
+                                <i class="fas fa-shield-virus me-1"></i> ปฏิเสธ (ข้อมูลเท็จ / สแปม)
+                            </button>
+                        </div>
                     </form>
 
                 <?php elseif (in_array($booking['status'], ['approved', 'completed', 'pending_office', 'pending_dean', 'pending_driver'])): ?>
@@ -381,6 +435,26 @@ require_once __DIR__ . '/includes/header.php';
                         </form>
                     </div>
 
+                <?php elseif ($booking['status'] == 'rejected_fraud'): ?>
+                    <!-- สถานะ: ปฏิเสธเนื่องจากเป็นข้อมูลเท็จ / สแปม -->
+                    <div class="text-center py-3">
+                        <i class="fas fa-shield-virus text-danger fs-1 mb-2 d-block"></i>
+                        <span class="text-danger fw-bold fs-6">ถูกระงับ: ข้อมูลเท็จ / สแปม</span>
+                        <p class="small text-muted mt-2 mb-3">
+                            คำขอนี้ถูกรายงานว่าเป็นข้อมูลเท็จและถูกตัดออกจากตารางงานเรียบร้อยแล้ว<br>
+                            <?php if (!empty($booking['fake_reason'])): ?>
+                                <span class="badge bg-danger mt-1">เหตุผล: <?= htmlspecialchars($booking['fake_reason']) ?></span>
+                            <?php endif; ?>
+                        </p>
+                        
+                        <form method="POST" onsubmit="return confirm('ยืนยันที่จะกู้คืนคำขอนี้กลับมาพิจารณาใหม่หรือไม่?');">
+                            <input type="hidden" name="action_type" value="revert_facility">
+                            <button type="submit" class="btn btn-outline-primary btn-sm w-100">
+                                <i class="fas fa-undo me-1"></i> กู้คืนกลับมาพิจารณาใหม่
+                            </button>
+                        </form>
+                    </div>
+
                 <?php elseif ($booking['status'] == 'rejected'): ?>
                     <div class="text-center py-3">
                         <i class="fas fa-times-circle text-danger fs-1 mb-2 d-block"></i>
@@ -413,6 +487,36 @@ require_once __DIR__ . '/includes/header.php';
                 </a>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Modal ปฏิเสธข้อมูลเท็จ / สแปม -->
+<div class="modal fade" id="modalRejectFraud" tabindex="-1" aria-labelledby="modalRejectFraudLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="POST" class="modal-content">
+            <input type="hidden" name="action_type" value="reject_fraud">
+            <div class="modal-header bg-danger text-white">
+                <h6 class="modal-title fw-bold" id="modalRejectFraudLabel">
+                    <i class="fas fa-shield-virus me-2"></i> ปฏิเสธคำขอที่เป็นเท็จ / สแปม
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning small mb-3">
+                    <i class="fas fa-exclamation-triangle me-1"></i> เมื่อยืนยัน สถานะคำขอนี้จะเปลี่ยนเป็น <strong>"ปฏิเสธ (ข้อมูลเท็จ/สแปม)"</strong> และจะถูกปลดออกจากปฏิทินและตารางงานทันที
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">ระบุเหตุผล / หมายเหตุ:</label>
+                    <input type="text" name="fake_reason" class="form-control" value="ตรวจพบเป็นข้อมูลเท็จ / สแปมก่อกวน" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ยกเลิก</button>
+                <button type="submit" class="btn btn-danger btn-sm fw-bold">
+                    <i class="fas fa-shield-virus me-1"></i> ยืนยันปฏิเสธข้อมูลเท็จ
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 

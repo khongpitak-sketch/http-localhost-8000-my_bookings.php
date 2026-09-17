@@ -7,6 +7,14 @@ $vehicles = $pdo->query("SELECT * FROM vehicles WHERE status = 'active'")->fetch
 $error = '';
 $success = '';
 
+// สุ่มคำถามความปลอดภัยป้องกันสแปมและบอท (Security Math Challenge)
+if (empty($_SESSION['captcha_ans']) || (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET')) {
+    $num1 = rand(2, 9);
+    $num2 = rand(1, 9);
+    $_SESSION['captcha_q'] = "$num1 + $num2 = ?";
+    $_SESSION['captcha_ans'] = $num1 + $num2;
+}
+
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $requester_name = trim($_POST['requester_name'] ?? '');
     $requester_position = trim($_POST['requester_position'] ?? '');
@@ -61,91 +69,140 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $start_datetime = "$start_date $start_time:00";
     $end_datetime = "$end_date $end_time:00";
 
-    // ตรวจสอบความถูกต้อง
-    if (empty($requester_name) || empty($requester_position) || empty($requester_department) ||
-        empty($vehicle_id) || empty($purpose) || empty($route_from) || empty($route_to) ||
-        empty($start_date) || empty($start_time) || empty($end_date) || empty($end_time) || empty($controller_name)) {
-        $error = 'กรุณากรอกข้อมูลให้ครบถ้วนทุกช่องที่มีเครื่องหมายดอกจัน (*)';
-    } elseif (strtotime($end_datetime) <= strtotime($start_datetime)) {
-        $error = 'วัน-เวลาสิ้นสุดการเดินทาง ต้องอยู่หลังจากวัน-เวลาเริ่มต้น';
-    } else {
-        // ตรวจสอบเงื่อนไขล่วงหน้า 1 วัน
-        $diffHours = (strtotime($start_datetime) - time()) / 3600;
-        if ($diffHours < 24) {
-            // แจ้งเตือนแต่ถ้าต้องการอนุโลมก็ให้ผ่านได้พร้อมบันทึกหมายเหตุ
-            // แต่สำหรับระบบนี้ให้แจ้งเตือนตามกฎ
+    // ระบบป้องกันคำขอเท็จและสแปม (Anti-Fraud & Anti-Spam Verification)
+    $botTrap = trim($_POST['pnu_verification_trap'] ?? '');
+    $securityAns = isset($_POST['security_challenge']) ? (int)$_POST['security_challenge'] : null;
+    $expectedAns = (int)($_SESSION['captcha_ans'] ?? -999);
+    $declarationConfirmed = !empty($_POST['declaration_confirmed']);
+
+    $clientIP = getClientIP();
+    $userAgent = substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 250);
+
+    // 1. ตรวจสอบ Honeypot Trap (บอทแอบกรอก)
+    if (!empty($botTrap)) {
+        $error = 'ตรวจพบความผิดปกติในการส่งข้อมูล ระบบขอระงับคำขอนี้เพื่อความปลอดภัย';
+    }
+    // 2. ตรวจสอบคำถามความปลอดภัย (Math Challenge)
+    elseif ($securityAns === null || $securityAns !== $expectedAns) {
+        $error = 'รหัสความปลอดภัย (คำถามป้องกันสแปม) ไม่ถูกต้อง กรุณากรอกคำตอบตัวเลขให้ถูกต้อง';
+    }
+    // 3. ตรวจสอบการรับรองข้อมูลจริง
+    elseif (!$declarationConfirmed) {
+        $error = 'กรุณาติ๊กรับรองว่าข้อมูลทั้งหมดเป็นความจริงตามระเบียบของทางราชการ';
+    }
+    else {
+        // ตรวจสอบ Rate Limit ป้องกันการยิงคำขอสแปมซ้ำซากจาก IP เดียวกัน
+        $recentStmt = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE client_ip = ? AND created_at >= datetime('now', '-5 minutes')");
+        $recentStmt->execute([$clientIP]);
+        if ((int)$recentStmt->fetchColumn() >= 6) {
+            $error = 'ตรวจพบการส่งคำขอถี่ผิดปกติจากอุปกรณ์ของท่าน กรุณารอประมาณ 5 นาทีก่อนทำรายการใหม่';
         }
+    }
 
-        // ตรวจสอบคิวรถชนกันหรือไม่ (Overlap Check)
-        $checkStmt = $pdo->prepare("
-            SELECT COUNT(*) FROM bookings 
-            WHERE vehicle_id = ? 
-              AND status NOT IN ('rejected', 'cancelled')
-              AND (
-                  (start_datetime <= ? AND end_datetime > ?) OR
-                  (start_datetime < ? AND end_datetime >= ?) OR
-                  (start_datetime >= ? AND end_datetime <= ?)
-              )
-        ");
-        $checkStmt->execute([
-            $vehicle_id,
-            $start_datetime, $start_datetime,
-            $end_datetime, $end_datetime,
-            $start_datetime, $end_datetime
-        ]);
-        $isConflict = $checkStmt->fetchColumn();
-
-        if ($isConflict > 0) {
-            $error = 'รถยนต์หมายเลขทะเบียนที่เลือก มีการจองใช้งานในช่วงวันและเวลาดังกล่าวแล้ว กรุณาเลือกรถคันอื่นหรือเปลี่ยนช่วงเวลา';
+    // ตรวจสอบความถูกต้องของข้อมูลทั่วไป
+    if (empty($error)) {
+        if (empty($requester_name) || empty($requester_position) || empty($requester_department) ||
+            empty($vehicle_id) || empty($purpose) || empty($route_from) || empty($route_to) ||
+            empty($start_date) || empty($start_time) || empty($end_date) || empty($end_time) || empty($controller_name)) {
+            $error = 'กรุณากรอกข้อมูลให้ครบถ้วนทุกช่องที่มีเครื่องหมายดอกจัน (*)';
+        } elseif (strtotime($end_datetime) <= strtotime($start_datetime)) {
+            $error = 'วัน-เวลาสิ้นสุดการเดินทาง ต้องอยู่หลังจากวัน-เวลาเริ่มต้น';
         } else {
-            // ดึงข้อมูลรถ
-            $vehStmt = $pdo->prepare("SELECT plate_number FROM vehicles WHERE id = ?");
-            $vehStmt->execute([$vehicle_id]);
-            $veh = $vehStmt->fetch();
-            $plate_number = $veh['plate_number'] ?? '';
+            // ตรวจสอบเงื่อนไขล่วงหน้า 1 วัน
+            $diffHours = (strtotime($start_datetime) - time()) / 3600;
+            if ($diffHours < 24) {
+                // แจ้งเตือนแต่ถ้าต้องการอนุโลมก็ให้ผ่านได้พร้อมบันทึกหมายเหตุ
+            }
 
-            // รันเลขที่เอกสาร เช่น ควจ. 003/2567
-            $currentYearThai = date('Y') + 543;
-            $countThisYear = $pdo->query("SELECT COUNT(*) FROM bookings WHERE strftime('%Y', created_date) = '" . date('Y') . "'")->fetchColumn();
-            $docNo = sprintf("ควจ. %03d/%d", $countThisYear + 1, $currentYearThai);
-
-            // บันทึกคำขอ
-            $insertBooking = $pdo->prepare("
-                INSERT INTO bookings (
-                    doc_no, created_date, user_id, requester_name, requester_position, requester_department,
-                    vehicle_id, plate_number, purpose, route_from, route_to, start_datetime, end_datetime,
-                    passenger_count, passenger_names, controller_name, status
-                ) VALUES (
-                    ?, date('now'), ?, ?, ?, ?,
-                    ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, 'pending_facility'
-                )
+            // ตรวจสอบคิวรถชนกันหรือไม่ (Overlap Check)
+            $checkStmt = $pdo->prepare("
+                SELECT COUNT(*) FROM bookings 
+                WHERE vehicle_id = ? 
+                  AND status NOT IN ('rejected', 'cancelled', 'rejected_fraud')
+                  AND (
+                      (start_datetime <= ? AND end_datetime > ?) OR
+                      (start_datetime < ? AND end_datetime >= ?) OR
+                      (start_datetime >= ? AND end_datetime <= ?)
+                  )
             ");
-            $insertBooking->execute([
-                $docNo,
-                $currentUser['id'] ?? null,
-                $requester_name,
-                $requester_position,
-                $requester_department,
+            $checkStmt->execute([
                 $vehicle_id,
-                $plate_number,
-                $purpose,
-                $route_from,
-                $route_to,
-                $start_datetime,
-                $end_datetime,
-                $passenger_count,
-                $passenger_names,
-                $controller_name
+                $start_datetime, $start_datetime,
+                $end_datetime, $end_datetime,
+                $start_datetime, $end_datetime
             ]);
-            $newBookingId = $pdo->lastInsertId();
+            $isConflict = $checkStmt->fetchColumn();
 
-            // สร้างแถวในตาราง approvals
-            $pdo->prepare("INSERT INTO approvals (booking_id) VALUES (?)")->execute([$newBookingId]);
+            if ($isConflict > 0) {
+                $error = 'รถยนต์หมายเลขทะเบียนที่เลือก มีการจองใช้งานในช่วงวันและเวลาดังกล่าวแล้ว กรุณาเลือกรถคันอื่นหรือเปลี่ยนช่วงเวลา';
+            } else {
+                // ดึงข้อมูลรถ
+                $vehStmt = $pdo->prepare("SELECT plate_number FROM vehicles WHERE id = ?");
+                $vehStmt->execute([$vehicle_id]);
+                $veh = $vehStmt->fetch();
+                $plate_number = $veh['plate_number'] ?? '';
 
-            header("Location: booking_detail.php?id=$newBookingId&success=1");
-            exit;
+                // รันเลขที่เอกสาร เช่น ควจ. 003/2567
+                $currentYearThai = date('Y') + 543;
+                $countThisYear = $pdo->query("SELECT COUNT(*) FROM bookings WHERE strftime('%Y', created_date) = '" . date('Y') . "'")->fetchColumn();
+                $docNo = sprintf("ควจ. %03d/%d", $countThisYear + 1, $currentYearThai);
+
+                // บันทึกคำขอพร้อมข้อมูลความปลอดภัย (IP Address, User Agent)
+                $insertBooking = $pdo->prepare("
+                    INSERT INTO bookings (
+                        doc_no, created_date, user_id, requester_name, requester_position, requester_department,
+                        vehicle_id, plate_number, purpose, route_from, route_to, start_datetime, end_datetime,
+                        passenger_count, passenger_names, controller_name, status,
+                        client_ip, user_agent, is_flagged_fake
+                    ) VALUES (
+                        ?, date('now'), ?, ?, ?, ?,
+                        ?, ?, ?, ?, ?, ?, ?,
+                        ?, ?, ?, 'pending_facility',
+                        ?, ?, 0
+                    )
+                ");
+                $insertBooking->execute([
+                    $docNo,
+                    $currentUser['id'] ?? null,
+                    $requester_name,
+                    $requester_position,
+                    $requester_department,
+                    $vehicle_id,
+                    $plate_number,
+                    $purpose,
+                    $route_from,
+                    $route_to,
+                    $start_datetime,
+                    $end_datetime,
+                    $passenger_count,
+                    $passenger_names,
+                    $controller_name,
+                    $clientIP,
+                    $userAgent
+                ]);
+                $newBookingId = $pdo->lastInsertId();
+
+                // รีเฟรชคำถามความปลอดภัยข้อใหม่
+                $num1 = rand(2, 9);
+                $num2 = rand(1, 9);
+                $_SESSION['captcha_q'] = "$num1 + $num2 = ?";
+                $_SESSION['captcha_ans'] = $num1 + $num2;
+
+                // สร้างแถวในตาราง approvals
+                $pdo->prepare("INSERT INTO approvals (booking_id) VALUES (?)")->execute([$newBookingId]);
+
+                header("Location: booking_detail.php?id=$newBookingId&success=1");
+                exit;
+            }
         }
+    }
+
+    // กรณีมีข้อผิดพลาด สุ่มคำถามความปลอดภัยข้อใหม่
+    if (!empty($error)) {
+        $num1 = rand(2, 9);
+        $num2 = rand(1, 9);
+        $_SESSION['captcha_q'] = "$num1 + $num2 = ?";
+        $_SESSION['captcha_ans'] = $num1 + $num2;
     }
 }
 
@@ -481,11 +538,50 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                 </div>
 
+                <!-- ส่วนที่ 5: การรับรองข้อมูลและระบบป้องกันคำขอเท็จ (Anti-Spam / Anti-Fraud) -->
+                <div class="card border-0 bg-white shadow-sm p-4 mb-4 rounded-3 border-start border-4 border-warning">
+                    <h6 class="fw-bold text-dark mb-3">
+                        <i class="fas fa-shield-halved text-warning me-2"></i>5. การรับรองข้อมูลและระบบป้องกันคำขอเท็จ (Anti-Spam)
+                    </h6>
+
+                    <!-- Honeypot Trap (บอทแอบกรอกแต่มนุษย์ไม่เห็น) -->
+                    <div style="display: none !important; opacity: 0; position: absolute; left: -9999px;">
+                        <label>อย่ากรอกข้อมูลในช่องนี้</label>
+                        <input type="text" name="pnu_verification_trap" value="" autocomplete="off" tabindex="-1">
+                    </div>
+
+                    <!-- ข้อความรับรองตามระเบียบทางราชการ -->
+                    <div class="form-check p-3 bg-light rounded-3 mb-3 border">
+                        <input class="form-check-input ms-0 me-2" type="checkbox" name="declaration_confirmed" id="declaration_confirmed" value="1" required checked>
+                        <label class="form-check-label text-dark fw-semibold" for="declaration_confirmed" style="font-size: 0.95rem; line-height: 1.6;">
+                            ข้าพเจ้าขอรับรองว่าข้อความและข้อมูลข้างต้นเป็นความจริงทุกประการ และมีความจำเป็นต้องใช้รถยนต์เพื่อปฏิบัติภารกิจของทางราชการจริง หากตรวจพบว่าเป็นข้อมูลเท็จ ข้าพเจ้ายินยอมให้ยกเลิกคำขอทันทีและรับผิดชอบตามระเบียบของทางราชการ
+                        </label>
+                    </div>
+
+                    <!-- รหัสความปลอดภัย (Security Math Challenge) -->
+                    <div class="row align-items-center g-3 bg-light p-3 rounded-3 border">
+                        <div class="col-md-auto col-12">
+                            <span class="badge bg-primary fs-6 px-3 py-2">
+                                <i class="fas fa-calculator me-1"></i> คำถามป้องกันสแปม: <strong><?= htmlspecialchars($_SESSION['captcha_q'] ?? '5 + 3 = ?') ?></strong>
+                            </span>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <input type="number" name="security_challenge" id="security_challenge" class="form-control fw-bold text-center form-control-lg border-primary" 
+                                   placeholder="ใส่ผลลัพธ์ตัวเลข" required autocomplete="off">
+                        </div>
+                        <div class="col-12 mt-2">
+                            <small class="text-muted">
+                                <i class="fas fa-lock text-success me-1"></i>ระบบบันทึก IP Address (<?= htmlspecialchars(getClientIP()) ?>) เพื่อความปลอดภัยและป้องกันการส่งคำขอเท็จ
+                            </small>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="d-flex justify-content-between align-items-center pt-3 border-top">
                     <a href="index.php" class="btn btn-outline-secondary px-4">
                         <i class="fas fa-arrow-left me-1"></i> ย้อนกลับ
                     </a>
-                    <button type="submit" class="btn btn-pnu px-5 py-2 fs-6">
+                    <button type="submit" id="btnSubmitBooking" class="btn btn-pnu px-5 py-2 fs-6">
                         <i class="fas fa-paper-plane me-2"></i> ส่งคำขออนุญาตใช้รถยนต์
                     </button>
                 </div>
@@ -520,6 +616,20 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     syncTimes();
+
+    // ป้องกันการกดยื่นซ้ำ (Anti Double-Submission)
+    const form = document.querySelector('form');
+    const submitBtn = document.getElementById('btnSubmitBooking');
+    if (form && submitBtn) {
+        form.addEventListener('submit', function() {
+            if (form.checkValidity()) {
+                setTimeout(function() {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> กำลังตรวจสอบและบันทึกคำขอ...';
+                }, 10);
+            }
+        });
+    }
 });
 </script>
 

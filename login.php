@@ -11,7 +11,15 @@ if ($isLoggedIn && $isAdmin) {
     exit;
 }
 
-if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+$failedAttempts = $_SESSION['login_failed_attempts'] ?? 0;
+$lastFailedTime = $_SESSION['login_last_failed'] ?? 0;
+
+// ป้องกัน Brute-Force Attack: ใส่ผิดเกิน 5 ครั้ง ระงับ 5 นาที
+if ($failedAttempts >= 5 && (time() - $lastFailedTime) < 300) {
+    $waitTime = 300 - (time() - $lastFailedTime);
+    $waitMin = ceil($waitTime / 60);
+    $error = "ตรวจพบการพยายามเข้าสู่ระบบผิดพลาดหลายครั้ง เพื่อความปลอดภัยระบบได้ระงับการล็อกอินชั่วคราว กรุณารออีก $waitMin นาที";
+} elseif (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $username = trim($_POST['username'] ?? '');
     $password = trim($_POST['password'] ?? '');
 
@@ -23,11 +31,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $user = $stmt->fetch();
 
         if ($user && password_verify($password, $user['password'])) {
+            unset($_SESSION['login_failed_attempts'], $_SESSION['login_last_failed']);
             $_SESSION['user'] = $user;
             header("Location: " . $redirect);
             exit;
         } else {
-            $error = 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง';
+            $_SESSION['login_failed_attempts'] = ($failedAttempts + 1);
+            $_SESSION['login_last_failed'] = time();
+            $remaining = 5 - ($failedAttempts + 1);
+            if ($remaining > 0) {
+                $error = "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง (สามารถลองได้อีก $remaining ครั้งก่อนถูกระงับชั่วคราว)";
+            } else {
+                $error = "คุณกรอกรหัสผ่านผิดครบ 5 ครั้งแล้ว ระบบระงับการเข้าสู่ระบบชั่วคราว 5 นาที เพื่อความปลอดภัย";
+            }
         }
     }
 }
