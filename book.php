@@ -29,7 +29,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $start_date = trim($_POST['start_date'] ?? '');
     }
 
-    $start_time = trim($_POST['start_time'] ?? '');
+    // เวลาออกเดินทาง (ระบบ 24 ชั่วโมง)
+    if (isset($_POST['start_hour']) && isset($_POST['start_minute'])) {
+        $start_time = sprintf('%02d:%02d', (int)$_POST['start_hour'], (int)$_POST['start_minute']);
+    } else {
+        $start_time = trim($_POST['start_time'] ?? '');
+    }
 
     if (!empty($_POST['end_day']) && !empty($_POST['end_month']) && !empty($_POST['end_year'])) {
         $eDay = (int)$_POST['end_day'];
@@ -43,7 +48,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $end_date = trim($_POST['end_date'] ?? '');
     }
 
-    $end_time = trim($_POST['end_time'] ?? '');
+    // เวลากลับถึง (ระบบ 24 ชั่วโมง)
+    if (isset($_POST['end_hour']) && isset($_POST['end_minute'])) {
+        $end_time = sprintf('%02d:%02d', (int)$_POST['end_hour'], (int)$_POST['end_minute']);
+    } else {
+        $end_time = trim($_POST['end_time'] ?? '');
+    }
     $passenger_count = (int)($_POST['passenger_count'] ?? 1);
     $passenger_names = trim($_POST['passenger_names'] ?? '');
     $controller_name = trim($_POST['controller_name'] ?? '');
@@ -172,6 +182,45 @@ if (!empty($_POST['end_date']) && empty($_POST['end_day'])) {
         $defEndMonth = (int)date('n', $et);
         $defEndYear = (int)date('Y', $et) + 543;
     }
+}
+
+// จัดการค่าเริ่มต้นเวลา (ระบบ 24 ชั่วโมง)
+$defStartHour = '08';
+$defStartMinute = '00';
+if (isset($_POST['start_hour'])) {
+    $defStartHour = sprintf('%02d', (int)$_POST['start_hour']);
+} elseif (!empty($_POST['start_time'])) {
+    $parts = explode(':', $_POST['start_time']);
+    $defStartHour = sprintf('%02d', (int)($parts[0] ?? 8));
+    $defStartMinute = sprintf('%02d', (int)($parts[1] ?? 0));
+}
+if (isset($_POST['start_minute'])) {
+    $defStartMinute = sprintf('%02d', (int)$_POST['start_minute']);
+}
+
+$defEndHour = '17';
+$defEndMinute = '00';
+if (isset($_POST['end_hour'])) {
+    $defEndHour = sprintf('%02d', (int)$_POST['end_hour']);
+} elseif (!empty($_POST['end_time'])) {
+    $parts = explode(':', $_POST['end_time']);
+    $defEndHour = sprintf('%02d', (int)($parts[0] ?? 17));
+    $defEndMinute = sprintf('%02d', (int)($parts[1] ?? 0));
+}
+if (isset($_POST['end_minute'])) {
+    $defEndMinute = sprintf('%02d', (int)$_POST['end_minute']);
+}
+
+$minuteBase = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
+$minuteStartOptions = $minuteBase;
+if (!in_array($defStartMinute, $minuteStartOptions)) {
+    $minuteStartOptions[] = $defStartMinute;
+    sort($minuteStartOptions);
+}
+$minuteEndOptions = $minuteBase;
+if (!in_array($defEndMinute, $minuteEndOptions)) {
+    $minuteEndOptions[] = $defEndMinute;
+    sort($minuteEndOptions);
 }
 
 require_once __DIR__ . '/includes/header.php';
@@ -322,16 +371,27 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
                         </div>
 
-                        <!-- เวลาออกเดินทาง -->
+                        <!-- เวลาออกเดินทาง (ระบบ 24 ชั่วโมง) -->
                         <div class="col-lg-4 col-md-12">
                             <label class="form-label fw-semibold">
-                                <i class="fas fa-clock text-primary me-1"></i>เวลาออกเดินทาง <span class="text-danger">*</span>
+                                <i class="fas fa-clock text-primary me-1"></i>เวลาออกเดินทาง (24 ชม.) <span class="text-danger">*</span>
                             </label>
                             <div class="input-group">
-                                <input type="time" name="start_time" class="form-control fw-semibold" 
-                                       value="<?= htmlspecialchars($_POST['start_time'] ?? '08:00') ?>" required>
-                                <span class="input-group-text bg-white">น.</span>
+                                <span class="input-group-text bg-white px-2 small text-muted">เวลา</span>
+                                <select name="start_hour" id="start_hour" class="form-select fw-semibold text-center" required>
+                                    <?php for ($h = 0; $h < 24; $h++): $hStr = sprintf('%02d', $h); ?>
+                                        <option value="<?= $hStr ?>" <?= ($defStartHour === $hStr) ? 'selected' : '' ?>><?= $hStr ?></option>
+                                    <?php endfor; ?>
+                                </select>
+                                <span class="input-group-text bg-white px-2 fw-bold">:</span>
+                                <select name="start_minute" id="start_minute" class="form-select fw-semibold text-center" required>
+                                    <?php foreach ($minuteStartOptions as $mStr): ?>
+                                        <option value="<?= $mStr ?>" <?= ($defStartMinute === $mStr) ? 'selected' : '' ?>><?= $mStr ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <span class="input-group-text bg-white px-2">น.</span>
                             </div>
+                            <input type="hidden" name="start_time" id="start_time" value="<?= "$defStartHour:$defStartMinute" ?>">
                         </div>
 
                         <!-- ขากลับ / สิ้นสุด -->
@@ -373,16 +433,27 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
                         </div>
 
-                        <!-- เวลากลับถึง -->
+                        <!-- เวลากลับถึง (ระบบ 24 ชั่วโมง) -->
                         <div class="col-lg-4 col-md-12">
                             <label class="form-label fw-semibold">
-                                <i class="fas fa-clock text-primary me-1"></i>เวลากลับถึง <span class="text-danger">*</span>
+                                <i class="fas fa-clock text-primary me-1"></i>เวลากลับถึง (24 ชม.) <span class="text-danger">*</span>
                             </label>
                             <div class="input-group">
-                                <input type="time" name="end_time" class="form-control fw-semibold" 
-                                       value="<?= htmlspecialchars($_POST['end_time'] ?? '17:00') ?>" required>
-                                <span class="input-group-text bg-white">น.</span>
+                                <span class="input-group-text bg-white px-2 small text-muted">เวลา</span>
+                                <select name="end_hour" id="end_hour" class="form-select fw-semibold text-center" required>
+                                    <?php for ($h = 0; $h < 24; $h++): $hStr = sprintf('%02d', $h); ?>
+                                        <option value="<?= $hStr ?>" <?= ($defEndHour === $hStr) ? 'selected' : '' ?>><?= $hStr ?></option>
+                                    <?php endfor; ?>
+                                </select>
+                                <span class="input-group-text bg-white px-2 fw-bold">:</span>
+                                <select name="end_minute" id="end_minute" class="form-select fw-semibold text-center" required>
+                                    <?php foreach ($minuteEndOptions as $mStr): ?>
+                                        <option value="<?= $mStr ?>" <?= ($defEndMinute === $mStr) ? 'selected' : '' ?>><?= $mStr ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <span class="input-group-text bg-white px-2">น.</span>
                             </div>
+                            <input type="hidden" name="end_time" id="end_time" value="<?= "$defEndHour:$defEndMinute" ?>">
                         </div>
                     </div>
                 </div>
@@ -422,5 +493,34 @@ require_once __DIR__ . '/includes/header.php';
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    function syncTimes() {
+        const sh = document.getElementById('start_hour');
+        const sm = document.getElementById('start_minute');
+        const st = document.getElementById('start_time');
+        if (sh && sm && st) {
+            st.value = sh.value + ':' + sm.value;
+        }
+
+        const eh = document.getElementById('end_hour');
+        const em = document.getElementById('end_minute');
+        const et = document.getElementById('end_time');
+        if (eh && em && et) {
+            et.value = eh.value + ':' + em.value;
+        }
+    }
+
+    ['start_hour', 'start_minute', 'end_hour', 'end_minute'].forEach(function(id) {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('change', syncTimes);
+        }
+    });
+
+    syncTimes();
+});
+</script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
