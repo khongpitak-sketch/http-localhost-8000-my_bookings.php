@@ -198,11 +198,9 @@ require_once __DIR__ . '/includes/header.php';
         </span>
     </div>
     <div class="d-flex gap-2">
-        <?php if (!empty($allBookings)): ?>
-        <a href="print_form.php?id=<?= $allBookings[0]['id'] ?>" target="_blank" class="btn btn-outline-secondary btn-sm">
+        <a href="print_form.php<?= !empty($allBookings) ? '?id=' . $allBookings[0]['id'] : '' ?>" target="_blank" class="btn btn-outline-secondary btn-sm">
             <i class="fas fa-file-invoice me-1"></i> ตัวอย่างเอกสาร A4
         </a>
-        <?php endif; ?>
         <a href="book.php" class="btn btn-pnu btn-sm">
             <i class="fas fa-plus me-1"></i> จองรถใหม่
         </a>
