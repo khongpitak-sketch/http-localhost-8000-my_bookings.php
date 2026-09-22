@@ -432,8 +432,8 @@ $emblemBase64 = file_exists($emblemPath) ? 'data:image/png;base64,' . base64_enc
                 อื่นๆ <span class="dots-inline" style="min-width: 190px;"><?= htmlspecialchars($app['office_other'] ?? '') ?></span>
             </div>
             <div style="margin-top: 12px; text-align: center; line-height: 1.35;">
-                ลงชื่อ <span class="dots-inline" style="min-width: 140px;"><?= ($app['office_status']) ? htmlspecialchars($app['office_signer'] ?? 'นางซูไบดะห์ หะยีมะ') : '' ?></span><br>
-                (<?= ($app['office_status']) ? htmlspecialchars($app['office_signer'] ?? 'นางซูไบดะห์ หะยีมะ') : 'นางซูไบดะห์ หะยีมะ' ?>)<br>
+                ลงชื่อ <span class="dots-inline" style="min-width: 140px;"><?= ($app['office_status']) ? htmlspecialchars($app['office_signer'] ?? 'นางสาววิภาดา ทองปิ่น') : '' ?></span><br>
+                (<?= ($app['office_status']) ? htmlspecialchars($app['office_signer'] ?? 'นางสาววิภาดา ทองปิ่น') : 'นางสาววิภาดา ทองปิ่น' ?>)<br>
                 หัวหน้าสำนักงานคณบดี<br>
                 <span style="display: inline-block; margin-top: 3px;">
                     <span class="dots-inline" style="min-width: 25px;"><?= ($app['office_signed_at']) ? date('j', strtotime($app['office_signed_at'])) : '' ?></span> /
@@ -457,8 +457,8 @@ $emblemBase64 = file_exists($emblemPath) ? 'data:image/png;base64,' . base64_enc
             <span class="checkbox-symbol"><?= (!empty($app['dean_other'])) ? '(&nbsp;✓&nbsp;)' : '(&nbsp;&nbsp;&nbsp;)' ?></span> อื่นๆ ระบุ <span class="dots-inline" style="min-width: 140px;"><?= htmlspecialchars($app['dean_other'] ?? '') ?></span>
         </div>
         <div style="margin-top: 12px; text-align: center; line-height: 1.35;">
-            ลงชื่อ <span class="dots-inline" style="min-width: 160px;"><?= ($app['dean_status']) ? htmlspecialchars($app['dean_signer'] ?? 'ผู้ช่วยศาสตราจารย์ ดร.บงกช กมลเปรม') : '' ?></span><br>
-            (<?= ($app['dean_status']) ? htmlspecialchars($app['dean_signer'] ?? 'ผู้ช่วยศาสตราจารย์ ดร.บงกช กมลเปรม') : 'ผู้ช่วยศาสตราจารย์ ดร.บงกช กมลเปรม' ?>)<br>
+            ลงชื่อ <span class="dots-inline" style="min-width: 160px;"><?= ($app['dean_status']) ? htmlspecialchars($app['dean_signer'] ?? 'อาจารย์ ดร.สุมาลี กรดกางกั้น') : '' ?></span><br>
+            (<?= ($app['dean_status']) ? htmlspecialchars($app['dean_signer'] ?? 'อาจารย์ ดร.สุมาลี กรดกางกั้น') : 'อาจารย์ ดร.สุมาลี กรดกางกั้น' ?>)<br>
             คณบดีคณะวิทยาการจัดการ<br>
             <span style="display: inline-block; margin-top: 3px;">
                 <span class="dots-inline" style="min-width: 25px;"><?= ($app['dean_signed_at']) ? date('j', strtotime($app['dean_signed_at'])) : '' ?></span> /

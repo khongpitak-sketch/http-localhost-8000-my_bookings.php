@@ -260,14 +260,14 @@ require_once __DIR__ . '/includes/header.php';
                     <div class="col-md-4">
                         <div class="p-2 border rounded bg-white h-100">
                             <strong>1. หัวหน้าสำนักงาน</strong><br>
-                            <span class="text-muted">นางซูไบดะห์ หะยีมะ</span><br>
+                            <span class="text-muted">นางสาววิภาดา ทองปิ่น</span><br>
                             <small class="text-secondary">(ให้ความเห็นในเอกสาร)</small>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="p-2 border rounded bg-white h-100">
                             <strong>2. คณบดีคณะฯ</strong><br>
-                            <span class="text-muted">ผศ. ดร.บงกช กมลเปรม</span><br>
+                            <span class="text-muted">อาจารย์ ดร.สุมาลี กรดกางกั้น</span><br>
                             <small class="text-secondary">(ลงนามคำสั่งอนุมัติ)</small>
                         </div>
                     </div>
