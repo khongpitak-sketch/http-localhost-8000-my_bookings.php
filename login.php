@@ -150,7 +150,7 @@ if ($failedAttempts >= 5 && (time() - $lastFailedTime) < 300) {
 <div class="login-card">
     <div class="login-header">
         <div class="mb-2">
-            <img src="assets/pnu_emblem.png" alt="PNU Logo" style="height: 75px; width: auto;">
+            <img src="assets/fms-logo.png" alt="FMS PNU Logo" style="height: 65px; width: auto; max-width: 160px; object-fit: contain;">
         </div>
         <h5 class="fw-bold text-dark mb-1">เข้าสู่ระบบ (Login)</h5>
         <div class="text-primary fw-semibold small">ระบบขออนุญาตใช้รถยนต์ <span class="badge bg-secondary text-white ms-1" style="font-size: 0.65rem;">v<?= defined('APP_VERSION') ? APP_VERSION : '2.0' ?></span></div>

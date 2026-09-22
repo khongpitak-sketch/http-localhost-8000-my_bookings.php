@@ -186,8 +186,8 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 <nav class="navbar navbar-expand-lg navbar-dark navbar-pnu sticky-top">
     <div class="container">
         <a class="navbar-brand d-flex align-items-center" href="index.php">
-            <div class="bg-white rounded-circle p-1 me-2 d-flex align-items-center justify-content-center overflow-hidden" style="width: 44px; height: 44px;">
-                <img src="assets/pnu_emblem.png" alt="PNU Emblem" style="height: 38px; width: auto;">
+            <div class="bg-white rounded-3 px-2 py-1 me-2 d-flex align-items-center justify-content-center shadow-sm" style="height: 44px;">
+                <img src="assets/fms-logo.png" alt="FMS PNU Logo" style="height: 34px; width: auto; max-width: 80px; object-fit: contain;">
             </div>
             <div>
                 <div class="fw-bold fs-6 lh-1 d-flex align-items-center gap-2">
