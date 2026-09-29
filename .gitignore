@@ -1,4 +1,4 @@
-﻿# OS & Editor files
+# OS & Editor files
 .DS_Store
 Thumbs.db
 .vscode/
@@ -10,3 +10,4 @@ Thumbs.db
 
 # Apache / Local
 xampp/
+data/sessions/

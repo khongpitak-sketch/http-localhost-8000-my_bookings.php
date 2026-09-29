@@ -63,6 +63,12 @@ if ($failedAttempts >= 5 && (time() - $lastFailedTime) < 300) {
             unset($_SESSION['login_failed_attempts'], $_SESSION['login_last_failed']);
             $_SESSION['user'] = $user;
 
+            // บันทึก Remember-Me Token ถาวร เพื่อไม่ให้ระบบเด้งออก (กำหนดเป็นค่าเริ่มต้น 90 วัน)
+            $rememberChoice = isset($_POST['remember']) ? (bool)$_POST['remember'] : true;
+            if ($rememberChoice) {
+                issueRememberToken($pdo, $user['id']);
+            }
+
             if (!empty($redirect)) {
                 header("Location: " . $redirect);
             } elseif ($user['role'] === 'admin') {
@@ -201,6 +207,13 @@ if ($failedAttempts >= 5 && (time() - $lastFailedTime) < 300) {
                     <li><strong>ผู้ใช้งานทั่วไป:</strong> ใช้ <u>ชื่อจริง นามสกุล</u> (ไม่ต้องใส่คำนำหน้า นาย/นาง/นางสาว) และรหัสผ่านตามที่กำหนด</li>
                     <li><strong>ผู้ดูแลระบบ (Admin):</strong> สามารถใช้ <code>Aeksit</code> หรือชื่อจริงได้</li>
                 </ul>
+            </div>
+
+            <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" name="remember" id="rememberMe" value="1" checked>
+                <label class="form-check-label small text-secondary user-select-none" for="rememberMe">
+                    <i class="fas fa-shield-check text-success me-1"></i> <strong>คงสถานะเข้าสู่ระบบไว้ตลอด</strong> (ป้องกันระบบเด้งออก)
+                </label>
             </div>
 
             <button type="submit" class="btn btn-pnu w-100 mb-3 fs-6">

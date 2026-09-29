@@ -19,5 +19,30 @@
 <!-- FullCalendar JS -->
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
 
+<?php if (!empty($isLoggedIn)): ?>
+<script>
+// ระบบรักษาสถานะการเชื่อมต่อ (Session Keep-Alive) ป้องกันระบบเด้งออกระหว่างเปิดทิ้งไว้
+(function() {
+    var lastPing = Date.now();
+    function sendHeartbeat() {
+        fetch('heartbeat.php', { method: 'GET', credentials: 'same-origin' })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                lastPing = Date.now();
+            })
+            .catch(function(err) {});
+    }
+    // ส่งสัญญาณทุกๆ 10 นาที
+    setInterval(sendHeartbeat, 10 * 60 * 1000);
+    // เมื่อสลับแท็บกลับมาทำงาน ถ้าเกิน 5 นาทีแล้วให้ส่งสัญญาณทันที
+    window.addEventListener('focus', function() {
+        if (Date.now() - lastPing > 5 * 60 * 1000) {
+            sendHeartbeat();
+        }
+    });
+})();
+</script>
+<?php endif; ?>
+
 </body>
 </html>

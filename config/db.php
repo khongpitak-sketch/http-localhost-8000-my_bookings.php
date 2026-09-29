@@ -174,6 +174,12 @@ try {
     if (!in_array('plain_password', $existingUserCols)) {
         $pdo->exec("ALTER TABLE users ADD COLUMN plain_password TEXT");
     }
+    if (!in_array('remember_token', $existingUserCols)) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN remember_token TEXT");
+    }
+    if (!in_array('remember_token_expiry', $existingUserCols)) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN remember_token_expiry DATETIME");
+    }
 } catch (Exception $e) {
     // ข้ามกรณีมีคอลัมน์อยู่แล้ว
 }

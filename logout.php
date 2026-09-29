@@ -1,6 +1,16 @@
 <?php
 // logout.php - ออกจากระบบ
-session_start();
+require_once __DIR__ . '/config/db.php';
+require_once __DIR__ . '/includes/auth.php';
+
+// เคลียร์ Remember Token ในฐานข้อมูลและลบคุกกี้ถาวร
+if (!empty($currentUser['id'])) {
+    clearRememberToken($pdo, $currentUser['id']);
+} else {
+    clearRememberToken($pdo);
+}
+
+// ล้างข้อมูล Session
 $_SESSION = [];
 if (ini_get("session.use_cookies")) {
     $params = session_get_cookie_params();
@@ -10,5 +20,6 @@ if (ini_get("session.use_cookies")) {
     );
 }
 session_destroy();
+
 header("Location: index.php");
 exit;
