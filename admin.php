@@ -31,6 +31,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     facility_signed_at = COALESCE(facility_signed_at, datetime('now'))
                 WHERE booking_id = ?
             ")->execute([$bookingId]);
+
+            if ($newStatus === 'completed') {
+                $pdo->prepare("
+                    UPDATE bookings SET 
+                        actual_end_datetime = COALESCE(actual_end_datetime, end_datetime, datetime('now', 'localtime')),
+                        vehicle_condition = COALESCE(vehicle_condition, 'ปกติเรียบร้อยดี'),
+                        return_recorded_by = COALESCE(return_recorded_by, 'ผู้ดูแลระบบ (Admin)'),
+                        return_recorded_at = COALESCE(return_recorded_at, datetime('now', 'localtime'))
+                    WHERE id = ?
+                ")->execute([$bookingId]);
+            }
         }
 
         // หากตั้งเป็น rejected_fraud (ข้อมูลเท็จ/สแปม)
@@ -151,7 +162,7 @@ $stats = [
     'pending_office' => $pdo->query("SELECT COUNT(*) FROM bookings WHERE status = 'pending_office'")->fetchColumn(),
     'pending_dean' => $pdo->query("SELECT COUNT(*) FROM bookings WHERE status = 'pending_dean'")->fetchColumn(),
     'pending_driver' => $pdo->query("SELECT COUNT(*) FROM bookings WHERE status = 'pending_driver'")->fetchColumn(),
-    'approved' => $pdo->query("SELECT COUNT(*) FROM bookings WHERE status IN ('approved', 'completed', 'pending_office', 'pending_dean', 'pending_driver')")->fetchColumn(),
+    'approved' => $pdo->query("SELECT COUNT(*) FROM bookings WHERE status IN ('approved', 'pending_office', 'pending_dean', 'pending_driver')")->fetchColumn(),
     'completed' => $pdo->query("SELECT COUNT(*) FROM bookings WHERE status = 'completed'")->fetchColumn(),
     'rejected' => $pdo->query("SELECT COUNT(*) FROM bookings WHERE status = 'rejected'")->fetchColumn(),
     'cancelled' => $pdo->query("SELECT COUNT(*) FROM bookings WHERE status = 'cancelled'")->fetchColumn(),
@@ -194,7 +205,7 @@ require_once __DIR__ . '/includes/header.php';
             <i class="fas fa-shield-halved text-primary me-2"></i>แผงควบคุมระบบ (Administrator Panel) <span class="badge bg-secondary fs-6 fw-normal ms-1">v<?= APP_VERSION ?></span>
         </h3>
         <span class="text-muted">
-            คณะวิทยาการจัดการ มหาวิทยาลัยนราธิวาสราชนครินทร์ | จัดการคำขอ, ยานพาหนะ, ผู้ใช้งาน และรายงานสถิติ
+            คณะวิทยาการจัดการ มหาวิทยาลัยนราธิวาสราชนครินทร์ | จัดการคำขอ, ยานพาหนะ, ผู้ใช้งาน และบันทึกสิ้นสุดการใช้รถ
         </span>
     </div>
     <div class="d-flex gap-2">
@@ -234,16 +245,16 @@ require_once __DIR__ . '/includes/header.php';
     </div>
     <div class="col-md-3 col-sm-6">
         <div class="card card-custom p-3 border-start border-4 border-success">
-            <div class="text-muted small">เห็นชอบแล้ว (พร้อมพิมพ์)</div>
+            <div class="text-muted small">เห็นชอบแล้ว / รอเดินทาง</div>
             <div class="fs-3 fw-bold text-success"><?= $stats['approved'] ?></div>
-            <div class="small text-muted mt-1"><i class="fas fa-print me-1"></i>พิมพ์เสนอลงนามต่อ</div>
+            <div class="small text-muted mt-1"><i class="fas fa-check-circle me-1"></i>พร้อมพิมพ์เสนอลงนาม</div>
         </div>
     </div>
     <div class="col-md-3 col-sm-6">
-        <div class="card card-custom p-3 border-start border-4 border-info">
-            <div class="text-muted small">ยานพาหนะส่วนกลาง</div>
-            <div class="fs-3 fw-bold text-info"><?= $stats['active_vehicles'] ?> / <?= $stats['total_vehicles'] ?> คัน</div>
-            <div class="small text-muted mt-1"><i class="fas fa-circle text-success me-1"></i>พร้อมบริการ: <?= $stats['active_vehicles'] ?> คัน</div>
+        <div class="card card-custom p-3 border-start border-4 border-primary">
+            <div class="text-muted small">สิ้นสุดการใช้รถแล้ว</div>
+            <div class="fs-3 fw-bold text-primary"><?= $stats['completed'] ?></div>
+            <div class="small text-muted mt-1"><i class="fas fa-flag-checkered me-1"></i>ส่งมอบคืนยานพาหนะแล้ว</div>
         </div>
     </div>
 </div>
@@ -353,7 +364,7 @@ require_once __DIR__ . '/includes/header.php';
                                         <div><strong>กลับ:</strong> <?= thaiDateShort($b['end_datetime']) ?></div>
                                     </small>
                                 </td>
-                                <td><?= getStatusBadge($b['status']) ?></td>
+                                <td><?= getStatusBadge($b['status'], $b) ?></td>
                                 <td class="text-center">
                                     <div class="d-flex justify-content-center gap-1">
                                         <a href="booking_detail.php?id=<?= $b['id'] ?>" class="btn btn-outline-primary btn-sm" title="เปิดดูรายละเอียด">
@@ -370,6 +381,14 @@ require_once __DIR__ . '/includes/header.php';
                                             </button>
                                             <ul class="dropdown-menu dropdown-menu-end">
                                                 <li><h6 class="dropdown-header">เลือกสถานะใหม่</h6></li>
+                                                <li>
+                                                    <form method="POST">
+                                                        <input type="hidden" name="action" value="change_booking_status">
+                                                        <input type="hidden" name="booking_id" value="<?= $b['id'] ?>">
+                                                        <input type="hidden" name="new_status" value="completed">
+                                                        <button type="submit" class="dropdown-item text-primary"><i class="fas fa-flag-checkered me-1"></i> สิ้นสุดการใช้รถแล้ว</button>
+                                                    </form>
+                                                </li>
                                                 <li>
                                                     <form method="POST">
                                                         <input type="hidden" name="action" value="change_booking_status">

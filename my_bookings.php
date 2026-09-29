@@ -159,7 +159,7 @@ require_once __DIR__ . '/includes/header.php';
                                 <div><i class="fas fa-arrow-left text-danger me-1"></i> <?= thaiDate($b['end_datetime']) ?></div>
                             </div>
                         </td>
-                        <td><?= getStatusBadge($b['status']) ?></td>
+                        <td><?= getStatusBadge($b['status'], $b) ?></td>
                         <td class="text-center">
                             <div class="btn-group btn-group-sm">
                                 <a href="booking_detail.php?id=<?= $b['id'] ?>" class="btn btn-outline-primary" title="ดูรายละเอียดและขั้นตอน">

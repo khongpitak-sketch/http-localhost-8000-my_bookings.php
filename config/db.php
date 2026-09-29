@@ -140,6 +140,35 @@ try {
         $pdo->exec("ALTER TABLE bookings ADD COLUMN fake_reason TEXT");
     }
 
+    // อัปเกรดคอลัมน์สำหรับเก็บข้อมูลการสิ้นสุดการใช้รถ (Vehicle Return & Completion)
+    if (!in_array('actual_end_datetime', $existingCols)) {
+        $pdo->exec("ALTER TABLE bookings ADD COLUMN actual_end_datetime DATETIME");
+    }
+    if (!in_array('start_mileage', $existingCols)) {
+        $pdo->exec("ALTER TABLE bookings ADD COLUMN start_mileage INTEGER");
+    }
+    if (!in_array('end_mileage', $existingCols)) {
+        $pdo->exec("ALTER TABLE bookings ADD COLUMN end_mileage INTEGER");
+    }
+    if (!in_array('fuel_level', $existingCols)) {
+        $pdo->exec("ALTER TABLE bookings ADD COLUMN fuel_level TEXT");
+    }
+    if (!in_array('vehicle_condition', $existingCols)) {
+        $pdo->exec("ALTER TABLE bookings ADD COLUMN vehicle_condition TEXT");
+    }
+    if (!in_array('return_notes', $existingCols)) {
+        $pdo->exec("ALTER TABLE bookings ADD COLUMN return_notes TEXT");
+    }
+    if (!in_array('returned_by', $existingCols)) {
+        $pdo->exec("ALTER TABLE bookings ADD COLUMN returned_by TEXT");
+    }
+    if (!in_array('return_recorded_by', $existingCols)) {
+        $pdo->exec("ALTER TABLE bookings ADD COLUMN return_recorded_by TEXT");
+    }
+    if (!in_array('return_recorded_at', $existingCols)) {
+        $pdo->exec("ALTER TABLE bookings ADD COLUMN return_recorded_at DATETIME");
+    }
+
     // อัปเกรดคอลัมน์ในตาราง users สำหรับเก็บรหัสผ่านที่ Admin ตรวจสอบและแก้ไขได้
     $existingUserCols = $pdo->query("PRAGMA table_info(users)")->fetchAll(PDO::FETCH_COLUMN, 1);
     if (!in_array('plain_password', $existingUserCols)) {
@@ -296,16 +325,27 @@ function thaiDateShort($date) {
 }
 
 // ฟังก์ชันแสดงป้ายสถานะ
-function getStatusBadge($status) {
+function getStatusBadge($status, $bookingOrEndTime = null) {
+    $endDatetime = null;
+    if (is_array($bookingOrEndTime)) {
+        $endDatetime = $bookingOrEndTime['end_datetime'] ?? null;
+    } elseif (is_string($bookingOrEndTime)) {
+        $endDatetime = $bookingOrEndTime;
+    }
+
     switch ($status) {
         case 'pending_facility':
             return '<span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i> รอหัวหน้าอาคารสถานที่พิจารณา</span>';
-        case 'approved':
         case 'completed':
+            return '<span class="badge bg-primary text-white"><i class="fas fa-flag-checkered me-1"></i> สิ้นสุดการใช้รถแล้ว</span>';
+        case 'approved':
         case 'pending_office':
         case 'pending_dean':
         case 'pending_driver':
-            return '<span class="badge bg-success"><i class="fas fa-check-circle me-1"></i> เห็นชอบแล้ว (พร้อมพิมพ์เสนอต่อ)</span>';
+            if ($endDatetime && strtotime($endDatetime) <= time()) {
+                return '<span class="badge bg-info text-dark" title="ถึงกำหนดเวลาสิ้นสุดการใช้รถแล้ว รอการบันทึกคืนรถ"><i class="fas fa-clock-rotate-left me-1"></i> อนุมัติแล้ว (ครบกำหนดคืนรถ)</span>';
+            }
+            return '<span class="badge bg-success"><i class="fas fa-check-circle me-1"></i> เห็นชอบแล้ว (พร้อมพิมพ์/ใช้งาน)</span>';
         case 'rejected':
             return '<span class="badge bg-danger"><i class="fas fa-times-circle me-1"></i> ไม่เห็นชอบ</span>';
         case 'rejected_fraud':

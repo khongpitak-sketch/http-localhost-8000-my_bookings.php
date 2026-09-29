@@ -75,6 +75,61 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action_type']
         header("Location: booking_detail.php?id=$bookingId&msg=reset");
         exit;
     }
+
+    // บันทึกข้อมูลการสิ้นสุดการใช้รถ (Vehicle Return & Completion)
+    if ($actionType === 'complete_trip') {
+        $actual_end_datetime = trim($_POST['actual_end_datetime'] ?? '');
+        if (empty($actual_end_datetime)) {
+            $actual_end_datetime = date('Y-m-d H:i:s');
+        } else {
+            $actual_end_datetime = str_replace('T', ' ', $actual_end_datetime);
+            if (strlen($actual_end_datetime) == 16) {
+                $actual_end_datetime .= ':00';
+            }
+        }
+        $start_mileage = (isset($_POST['start_mileage']) && $_POST['start_mileage'] !== '') ? (int)$_POST['start_mileage'] : null;
+        $end_mileage = (isset($_POST['end_mileage']) && $_POST['end_mileage'] !== '') ? (int)$_POST['end_mileage'] : null;
+        $fuel_level = trim($_POST['fuel_level'] ?? 'เต็มถัง');
+        $vehicle_condition = trim($_POST['vehicle_condition'] ?? 'ปกติเรียบร้อยดี');
+        $return_notes = trim($_POST['return_notes'] ?? '');
+        $returned_by = trim($_POST['returned_by'] ?? ($approval['office_driver_assigned'] ?? 'นายธเนศ อินเอิบ'));
+        $return_recorded_by = $currentUser['fullname'] ?? 'ผู้ดูแลระบบ';
+
+        $pdo->prepare("
+            UPDATE bookings SET 
+                status = 'completed',
+                actual_end_datetime = ?,
+                start_mileage = ?,
+                end_mileage = ?,
+                fuel_level = ?,
+                vehicle_condition = ?,
+                return_notes = ?,
+                returned_by = ?,
+                return_recorded_by = ?,
+                return_recorded_at = datetime('now', 'localtime')
+            WHERE id = ?
+        ")->execute([
+            $actual_end_datetime,
+            $start_mileage,
+            $end_mileage,
+            $fuel_level,
+            $vehicle_condition,
+            $return_notes,
+            $returned_by,
+            $return_recorded_by,
+            $bookingId
+        ]);
+
+        header("Location: booking_detail.php?id=$bookingId&msg=completed");
+        exit;
+    }
+
+    // ยกเลิกสถานะสิ้นสุดการใช้รถ เพื่อกลับไปเป็นสถานะเห็นชอบแล้ว
+    if ($actionType === 'revert_complete') {
+        $pdo->prepare("UPDATE bookings SET status = 'approved' WHERE id = ?")->execute([$bookingId]);
+        header("Location: booking_detail.php?id=$bookingId&msg=reverted_complete");
+        exit;
+    }
 }
 
 // ดึงรายชื่อพนักงานขับรถ
@@ -100,6 +155,27 @@ require_once __DIR__ . '/includes/header.php';
 <?php if (isset($_GET['msg']) && $_GET['msg'] == 'fraud_rejected'): ?>
 <div class="alert alert-danger alert-dismissible fade show" role="alert">
     <i class="fas fa-shield-virus me-2"></i> ปฏิเสธคำขอนี้เนื่องจากเป็นข้อมูลเท็จ/สแปม เรียบร้อยแล้ว (ปลดออกจากปฏิทินและตารางงานแล้ว)
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+<?php endif; ?>
+
+<?php if (isset($_GET['msg']) && $_GET['msg'] == 'completed'): ?>
+<div class="alert alert-success alert-dismissible fade show" role="alert">
+    <i class="fas fa-flag-checkered me-2"></i> <strong>บันทึกสิ้นสุดการใช้รถเรียบร้อยแล้ว:</strong> ระบบได้จัดเก็บข้อมูลการส่งมอบคืนยานพาหนะ วันเวลาจริง เลขไมล์ และสภาพรถยนต์เข้าสู่ระบบเรียบร้อยแล้ว
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+<?php endif; ?>
+
+<?php if (isset($_GET['msg']) && $_GET['msg'] == 'reverted_complete'): ?>
+<div class="alert alert-warning alert-dismissible fade show" role="alert">
+    <i class="fas fa-undo me-2"></i> ยกเลิกสถานะสิ้นสุดการใช้รถ กลับสู่สถานะเห็นชอบแล้วเรียบร้อย
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+<?php endif; ?>
+
+<?php if (isset($_GET['msg']) && $_GET['msg'] == 'reset'): ?>
+<div class="alert alert-secondary alert-dismissible fade show" role="alert">
+    <i class="fas fa-undo me-2"></i> ยกเลิกผลการพิจารณาเพื่อกลับไปพิจารณาใหม่เรียบร้อยแล้ว
     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
 </div>
 <?php endif; ?>
@@ -288,6 +364,116 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                 <?php endif; ?>
             </div>
+
+            <!-- 3. ข้อมูลการสิ้นสุดการใช้รถ (Vehicle Return & Trip Completion) -->
+            <?php if ($booking['status'] === 'completed'): ?>
+            <div class="border border-primary rounded-3 p-3 bg-primary-subtle mt-3">
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 pb-2 border-bottom border-primary-subtle">
+                    <h6 class="fw-bold mb-0 text-primary">
+                        <span class="badge bg-primary text-white me-2"><i class="fas fa-flag-checkered me-1"></i> สิ้นสุดการใช้รถแล้ว</span>
+                        บันทึกข้อมูลการสิ้นสุดการใช้รถและการส่งมอบคืนยานพาหนะ
+                    </h6>
+                    <?php if ($isAdmin): ?>
+                    <div class="d-flex gap-2 mt-2 mt-sm-0">
+                        <button type="button" class="btn btn-primary btn-sm fw-semibold" data-bs-toggle="modal" data-bs-target="#modalCompleteTrip">
+                            <i class="fas fa-edit me-1"></i> แก้ไขข้อมูลสิ้นสุด
+                        </button>
+                    </div>
+                    <?php endif; ?>
+                </div>
+
+                <div class="row g-3 small">
+                    <div class="col-md-6">
+                        <div class="p-2 bg-white rounded border h-100">
+                            <div class="text-muted mb-1"><i class="fas fa-calendar-check text-success me-1"></i> <strong>วัน-เวลาสิ้นสุดการใช้รถจริง:</strong></div>
+                            <div class="fs-6 fw-bold text-dark"><?= !empty($booking['actual_end_datetime']) ? thaiDate($booking['actual_end_datetime']) : '-' ?></div>
+                            <div class="text-muted small mt-1">กำหนดเดิม: <?= thaiDate($booking['end_datetime']) ?></div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-2 bg-white rounded border h-100">
+                            <div class="text-muted mb-1"><i class="fas fa-id-badge text-primary me-1"></i> <strong>พนักงานขับรถ / ผู้ส่งมอบคืน:</strong></div>
+                            <div class="fs-6 fw-bold text-dark"><?= htmlspecialchars($booking['returned_by'] ?? ($approval['office_driver_assigned'] ?? 'นายธเนศ อินเอิบ')) ?></div>
+                            <div class="text-muted small mt-1">ผู้บันทึก: <?= htmlspecialchars($booking['return_recorded_by'] ?? '-') ?> (<?= !empty($booking['return_recorded_at']) ? thaiDateShort($booking['return_recorded_at']) : '' ?>)</div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="p-2 bg-white rounded border text-center h-100">
+                            <div class="text-muted small mb-1">เลขไมล์ก่อนเดินทาง</div>
+                            <div class="fw-bold text-dark fs-6"><?= !empty($booking['start_mileage']) ? number_format($booking['start_mileage']) . ' กม.' : '-' ?></div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-2 bg-white rounded border text-center h-100">
+                            <div class="text-muted small mb-1">เลขไมล์เมื่อสิ้นสุด</div>
+                            <div class="fw-bold text-dark fs-6"><?= !empty($booking['end_mileage']) ? number_format($booking['end_mileage']) . ' กม.' : '-' ?></div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-2 bg-white rounded border text-center h-100">
+                            <div class="text-muted small mb-1">ระยะทางที่ใช้จริง</div>
+                            <div class="fw-bold text-primary fs-6">
+                                <?= (!empty($booking['end_mileage']) && !empty($booking['start_mileage']) && $booking['end_mileage'] >= $booking['start_mileage']) ? number_format($booking['end_mileage'] - $booking['start_mileage']) . ' กม.' : '-' ?>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="p-2 bg-white rounded border h-100">
+                            <span class="text-muted"><strong>สภาพรถยนต์เมื่อส่งคืน:</strong></span>
+                            <?php 
+                                $isClean = ($booking['vehicle_condition'] == 'ปกติเรียบร้อยดี' || empty($booking['vehicle_condition']));
+                                $condBadge = $isClean ? 'bg-success' : 'bg-warning text-dark';
+                            ?>
+                            <span class="badge <?= $condBadge ?> ms-1"><?= htmlspecialchars($booking['vehicle_condition'] ?? 'ปกติเรียบร้อยดี') ?></span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="p-2 bg-white rounded border h-100">
+                            <span class="text-muted"><strong>ระดับน้ำมันคงเหลือ:</strong></span>
+                            <span class="badge bg-info text-dark ms-1"><?= htmlspecialchars($booking['fuel_level'] ?? 'เต็มถัง') ?></span>
+                        </div>
+                    </div>
+
+                    <?php if (!empty($booking['return_notes'])): ?>
+                    <div class="col-12">
+                        <div class="p-2 bg-white rounded border">
+                            <strong>หมายเหตุหลังเสร็จสิ้นภารกิจ:</strong> <?= nl2br(htmlspecialchars($booking['return_notes'])) ?>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <?php elseif (in_array($booking['status'], ['approved', 'pending_office', 'pending_dean', 'pending_driver'])): ?>
+            <!-- เมื่ออนุมัติแล้ว และรอสิ้นสุดการใช้รถ -->
+            <div class="border rounded-3 p-3 bg-light mt-3">
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-2">
+                    <h6 class="fw-bold mb-0 text-dark">
+                        <span class="badge bg-secondary me-2"><i class="fas fa-flag-checkered me-1"></i> ขั้นตอนสิ้นสุด</span>
+                        การสิ้นสุดการใช้รถและการส่งคืนยานพาหนะ
+                    </h6>
+                    <?php if (strtotime($booking['end_datetime']) <= time()): ?>
+                        <span class="badge bg-info text-dark"><i class="fas fa-clock-rotate-left me-1"></i> ครบกำหนดเวลาสิ้นสุดแล้ว</span>
+                    <?php else: ?>
+                        <span class="badge bg-warning text-dark"><i class="fas fa-car-side me-1"></i> อยู่ระหว่างใช้งาน / รอเดินทาง</span>
+                    <?php endif; ?>
+                </div>
+
+                <p class="small text-muted mb-2">
+                    เมื่อเสร็จสิ้นภารกิจการเดินทางและนำรถยนต์กลับมาส่งมอบคืนแล้ว เจ้าหน้าที่หรือพนักงานขับรถสามารถบันทึกข้อมูลสิ้นสุดการใช้รถ (เลขไมล์, สภาพรถ, น้ำมัน) เพื่อเก็บบันทึกประวัติและปิดคำขอได้
+                </p>
+
+                <?php if ($isAdmin): ?>
+                <div class="mt-2 text-center text-sm-start">
+                    <button type="button" class="btn btn-primary btn-sm px-3 fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#modalCompleteTrip">
+                        <i class="fas fa-flag-checkered me-1"></i> บันทึกข้อมูลสิ้นสุดการใช้รถ (ส่งมอบคืนยานพาหนะ)
+                    </button>
+                </div>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -394,15 +580,56 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
                     </form>
 
-                <?php elseif (in_array($booking['status'], ['approved', 'completed', 'pending_office', 'pending_dean', 'pending_driver'])): ?>
-                    <!-- สถานะ: เห็นชอบแล้ว พร้อมพิมพ์เสนอต่อ -->
+                <?php elseif ($booking['status'] == 'completed'): ?>
+                    <!-- สถานะ: สิ้นสุดการใช้รถแล้ว -->
                     <div class="text-center py-2">
-                        <div class="mb-3">
+                        <div class="mb-2">
+                            <i class="fas fa-flag-checkered text-primary fs-1"></i>
+                        </div>
+                        <h6 class="fw-bold text-primary mb-1">สิ้นสุดการใช้รถเรียบร้อยแล้ว</h6>
+                        <span class="badge bg-primary text-white mb-3">บันทึกส่งมอบคืนยานพาหนะแล้ว</span>
+
+                        <div class="bg-light p-3 rounded text-start small mb-3 border">
+                            <div class="mb-1">
+                                <strong>เวลาสิ้นสุดจริง:</strong> <?= !empty($booking['actual_end_datetime']) ? thaiDateShort($booking['actual_end_datetime']) : '-' ?>
+                            </div>
+                            <div class="mb-1">
+                                <strong>ระยะทางที่ใช้:</strong> 
+                                <?= (!empty($booking['end_mileage']) && !empty($booking['start_mileage']) && $booking['end_mileage'] >= $booking['start_mileage']) ? number_format($booking['end_mileage'] - $booking['start_mileage']) . ' กม.' : (!empty($booking['end_mileage']) ? number_format($booking['end_mileage']) . ' กม. (เลขไมล์คืน)' : 'ไม่ได้ระบุ') ?>
+                            </div>
+                            <div class="mb-1">
+                                <strong>สภาพรถ:</strong> <span class="badge bg-success-subtle text-success"><?= htmlspecialchars($booking['vehicle_condition'] ?? 'ปกติ') ?></span>
+                            </div>
+                            <div>
+                                <strong>ผู้ส่งคืน:</strong> <?= htmlspecialchars($booking['returned_by'] ?? ($approval['office_driver_assigned'] ?? '-')) ?>
+                            </div>
+                        </div>
+
+                        <button type="button" class="btn btn-outline-primary btn-sm w-100 fw-bold py-2 mb-2" data-bs-toggle="modal" data-bs-target="#modalCompleteTrip">
+                            <i class="fas fa-edit me-1"></i> แก้ไขข้อมูลสิ้นสุดการใช้รถ
+                        </button>
+
+                        <a href="print_form.php?id=<?= $booking['id'] ?>" target="_blank" class="btn btn-outline-secondary btn-sm w-100 mb-2">
+                            <i class="fas fa-print me-1"></i> พิมพ์แบบฟอร์มราชการ (A4)
+                        </a>
+
+                        <form method="POST" onsubmit="return confirm('ยืนยันที่จะยกเลิกสถานะสิ้นสุดการใช้รถ และย้อนกลับไปเป็นสถานะเห็นชอบแล้วหรือไม่?');" class="mt-2">
+                            <input type="hidden" name="action_type" value="revert_complete">
+                            <button type="submit" class="btn btn-outline-secondary btn-sm w-100">
+                                <i class="fas fa-undo me-1"></i> ยกเลิกสถานะสิ้นสุด (กลับไปเห็นชอบแล้ว)
+                            </button>
+                        </form>
+                    </div>
+
+                <?php elseif (in_array($booking['status'], ['approved', 'pending_office', 'pending_dean', 'pending_driver'])): ?>
+                    <!-- สถานะ: เห็นชอบแล้ว พร้อมพิมพ์เสนอต่อ / อยู่ระหว่างใช้งาน -->
+                    <div class="text-center py-2">
+                        <div class="mb-2">
                             <i class="fas fa-check-circle text-success fs-1"></i>
                         </div>
                         <h6 class="fw-bold text-success mb-1">หัวหน้างานอาคารสถานที่เห็นชอบแล้ว</h6>
                         <p class="small text-muted mb-3">
-                            คำขอนี้ได้รับการตรวจสอบและบันทึกความเห็นชอบในระบบแล้ว พร้อมสำหรับพิมพ์แบบฟอร์มเพื่อเสนอลงนามตามลำดับ
+                            คำขอนี้ได้รับการตรวจสอบและบันทึกความเห็นชอบในระบบแล้ว สามารถพิมพ์แบบฟอร์ม หรือบันทึกสิ้นสุดการใช้รถเมื่อเสร็จสิ้นภารกิจ
                         </p>
 
                         <div class="bg-light p-3 rounded text-start small mb-3 border">
@@ -423,7 +650,17 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
                         </div>
 
-                        <a href="print_form.php?id=<?= $booking['id'] ?>" target="_blank" class="btn btn-success btn-lg w-100 fw-bold py-2 mb-2 shadow-sm">
+                        <!-- กล่องบันทึกสิ้นสุดการใช้รถ -->
+                        <div class="p-2 mb-3 bg-primary-subtle rounded border border-primary text-center">
+                            <div class="small fw-bold text-primary mb-2">
+                                <i class="fas fa-flag-checkered me-1"></i> สิ้นสุดภารกิจเดินทางแล้ว?
+                            </div>
+                            <button type="button" class="btn btn-primary w-100 fw-bold py-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalCompleteTrip">
+                                <i class="fas fa-flag-checkered me-1"></i> บันทึกสิ้นสุดการใช้รถ
+                            </button>
+                        </div>
+
+                        <a href="print_form.php?id=<?= $booking['id'] ?>" target="_blank" class="btn btn-success btn-sm w-100 fw-bold py-2 mb-2 shadow-sm">
                             <i class="fas fa-print me-1"></i> พิมพ์แบบฟอร์มราชการ (A4)
                         </a>
 
@@ -519,5 +756,110 @@ require_once __DIR__ . '/includes/header.php';
         </form>
     </div>
 </div>
+
+<!-- Modal บันทึกข้อมูลการสิ้นสุดการใช้รถ (ส่งมอบคืนยานพาหนะ) -->
+<div class="modal fade" id="modalCompleteTrip" tabindex="-1" aria-labelledby="modalCompleteTripLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <form method="POST" class="modal-content">
+            <input type="hidden" name="action_type" value="complete_trip">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold" id="modalCompleteTripLabel">
+                    <i class="fas fa-flag-checkered me-2"></i> บันทึกข้อมูลการสิ้นสุดการใช้รถ (ส่งมอบคืนยานพาหนะ)
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="alert alert-info py-2 px-3 small mb-3">
+                    <i class="fas fa-info-circle me-1"></i> กรุณากรอกข้อมูลหลังเสร็จสิ้นภารกิจ เพื่อเก็บบันทึกประวัติการใช้รถยนต์ เลขไมล์ สภาพรถ และปิดคำขอจอง
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">วัน-เวลาสิ้นสุดการใช้รถจริง <span class="text-danger">*</span></label>
+                        <input type="datetime-local" name="actual_end_datetime" class="form-control" 
+                               value="<?= !empty($booking['actual_end_datetime']) ? date('Y-m-d\TH:i', strtotime($booking['actual_end_datetime'])) : (!empty($booking['end_datetime']) ? date('Y-m-d\TH:i', strtotime($booking['end_datetime'])) : date('Y-m-d\TH:i')) ?>" required>
+                        <small class="text-muted">กำหนดเดิมตามคำขอ: <?= thaiDate($booking['end_datetime']) ?></small>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">พนักงานขับรถ / ผู้ส่งมอบคืน <span class="text-danger">*</span></label>
+                        <input type="text" name="returned_by" class="form-control" 
+                               value="<?= htmlspecialchars($booking['returned_by'] ?? $approval['office_driver_assigned'] ?? 'นายธเนศ อินเอิบ') ?>" required>
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-3 bg-light p-3 rounded-3 border">
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold small text-dark"><i class="fas fa-tachometer-alt me-1 text-primary"></i> เลขไมล์ก่อนเดินทาง (กม.)</label>
+                        <input type="number" name="start_mileage" id="start_mileage" class="form-control form-control-sm" 
+                               placeholder="เช่น 120500" value="<?= htmlspecialchars($booking['start_mileage'] ?? '') ?>" oninput="calcDistance()">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold small text-dark"><i class="fas fa-tachometer-alt me-1 text-danger"></i> เลขไมล์เมื่อสิ้นสุด (กม.)</label>
+                        <input type="number" name="end_mileage" id="end_mileage" class="form-control form-control-sm" 
+                               placeholder="เช่น 120850" value="<?= htmlspecialchars($booking['end_mileage'] ?? '') ?>" oninput="calcDistance()">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold small text-dark"><i class="fas fa-route me-1 text-success"></i> ระยะทางที่ใช้จริง</label>
+                        <div class="form-control form-control-sm bg-white text-primary fw-bold" id="total_distance_display">
+                            <?= (!empty($booking['end_mileage']) && !empty($booking['start_mileage']) && $booking['end_mileage'] >= $booking['start_mileage']) ? number_format($booking['end_mileage'] - $booking['start_mileage']) . ' กม.' : '- กม.' ?>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">สภาพรถยนต์เมื่อส่งคืน <span class="text-danger">*</span></label>
+                        <select name="vehicle_condition" class="form-select" required>
+                            <?php $currCond = $booking['vehicle_condition'] ?? 'ปกติเรียบร้อยดี'; ?>
+                            <option value="ปกติเรียบร้อยดี" <?= ($currCond == 'ปกติเรียบร้อยดี') ? 'selected' : '' ?>>✓ ปกติเรียบร้อยดี (พร้อมใช้งานต่อ)</option>
+                            <option value="ต้องนำไปล้างทำความสะอาด" <?= ($currCond == 'ต้องนำไปล้างทำความสะอาด') ? 'selected' : '' ?>>ต้องนำไปล้างทำความสะอาด</option>
+                            <option value="มีรอยเฉี่ยวชน / ชำรุดรอซ่อม" <?= ($currCond == 'มีรอยเฉี่ยวชน / ชำรุดรอซ่อม') ? 'selected' : '' ?>>มีรอยเฉี่ยวชน / ชำรุดรอซ่อม</option>
+                            <option value="อุปกรณ์หรือเครื่องยนต์ขัดข้อง" <?= ($currCond == 'อุปกรณ์หรือเครื่องยนต์ขัดข้อง') ? 'selected' : '' ?>>อุปกรณ์หรือเครื่องยนต์ขัดข้อง</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">ระดับน้ำมันเชื้อเพลิงเมื่อสิ้นสุด</label>
+                        <select name="fuel_level" class="form-select">
+                            <?php $currFuel = $booking['fuel_level'] ?? 'เต็มถัง'; ?>
+                            <option value="เต็มถัง" <?= ($currFuel == 'เต็มถัง') ? 'selected' : '' ?>>เต็มถัง</option>
+                            <option value="3/4 ถัง" <?= ($currFuel == '3/4 ถัง') ? 'selected' : '' ?>>3/4 ถัง</option>
+                            <option value="1/2 ถัง" <?= ($currFuel == '1/2 ถัง') ? 'selected' : '' ?>>1/2 ถัง</option>
+                            <option value="1/4 ถัง" <?= ($currFuel == '1/4 ถัง') ? 'selected' : '' ?>>1/4 ถัง</option>
+                            <option value="ใกล้หมด / ไฟเตือนติด" <?= ($currFuel == 'ใกล้หมด / ไฟเตือนติด') ? 'selected' : '' ?>>ใกล้หมด / ไฟเตือนติด</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">หมายเหตุ / บันทึกเพิ่มเติมหลังเสร็จสิ้นภารกิจ</label>
+                    <textarea name="return_notes" class="form-control" rows="2" placeholder="ระบุรายละเอียดเพิ่มเติม เช่น รายการซ่อม ปัญหาการเดินทาง หรือข้อสังเกต (ถ้ามี)"><?= htmlspecialchars($booking['return_notes'] ?? '') ?></textarea>
+                </div>
+
+                <div class="small text-muted bg-light p-2 rounded">
+                    <i class="fas fa-user-edit text-primary me-1"></i> ผู้บันทึกข้อมูล: <strong><?= htmlspecialchars($currentUser['fullname'] ?? 'ผู้ดูแลระบบ') ?></strong> (บันทึกเข้าระบบทันทีเมื่อกดยืนยัน)
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ยกเลิก</button>
+                <button type="submit" class="btn btn-primary btn-sm px-4 fw-bold">
+                    <i class="fas fa-save me-1"></i> บันทึกข้อมูลสิ้นสุดการใช้รถ
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function calcDistance() {
+    var start = parseFloat(document.getElementById('start_mileage').value);
+    var end = parseFloat(document.getElementById('end_mileage').value);
+    var display = document.getElementById('total_distance_display');
+    if (!isNaN(start) && !isNaN(end) && end >= start) {
+        display.innerText = (end - start).toLocaleString() + ' กม.';
+    } else {
+        display.innerText = '- กม.';
+    }
+}
+</script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

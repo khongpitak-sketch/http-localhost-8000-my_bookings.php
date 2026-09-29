@@ -39,13 +39,21 @@ $pendingSql = "SELECT b.*, v.brand_model, v.vehicle_type
                ORDER BY b.id DESC";
 $pendingList = $pdo->query($pendingSql)->fetchAll();
 
-// คำขอที่เห็นชอบแล้ว / พร้อมพิมพ์เสนอต่อ
+// คำขอที่เห็นชอบแล้ว / รอเดินทางหรืออยู่ระหว่างใช้งาน
 $approvedSql = "SELECT b.*, v.brand_model, v.vehicle_type 
                 FROM bookings b 
                 JOIN vehicles v ON b.vehicle_id = v.id 
-                WHERE b.status IN ('approved', 'completed', 'pending_office', 'pending_dean', 'pending_driver') 
+                WHERE b.status IN ('approved', 'pending_office', 'pending_dean', 'pending_driver') 
                 ORDER BY b.id DESC";
 $approvedList = $pdo->query($approvedSql)->fetchAll();
+
+// คำขอที่สิ้นสุดการใช้รถแล้ว
+$completedSql = "SELECT b.*, v.brand_model, v.vehicle_type 
+                 FROM bookings b 
+                 JOIN vehicles v ON b.vehicle_id = v.id 
+                 WHERE b.status = 'completed' 
+                 ORDER BY b.id DESC";
+$completedList = $pdo->query($completedSql)->fetchAll();
 
 // คำขอที่เป็นเท็จ / สแปมที่ถูกปฏิเสธ
 $fraudSql = "SELECT b.*, v.brand_model, v.vehicle_type 
@@ -95,7 +103,7 @@ require_once __DIR__ . '/includes/header.php';
 </div>
 
 <div class="alert alert-info py-2 px-3 small mb-4">
-    <i class="fas fa-info-circle me-1"></i> <strong>ระบบอนุมัติขั้นตอนเดียว:</strong> หัวหน้างานอาคารสถานที่พิจารณาเห็นชอบ มอบหมายคนขับ และสนับสนุนงบประมาณในระบบ จากนั้นพิมพ์แบบฟอร์มราชการ (A4) เพื่อเสนอลงนามตามลำดับสายงานต่อไป
+    <i class="fas fa-info-circle me-1"></i> <strong>ระบบบริหารคำขอและสิ้นสุดการใช้รถ:</strong> หัวหน้างานอาคารสถานที่พิจารณาเห็นชอบ มอบหมายคนขับ จากนั้นพิมพ์แบบฟอร์ม (A4) และเมื่อเสร็จสิ้นภารกิจสามารถบันทึกข้อมูลการสิ้นสุดการใช้รถได้
 </div>
 
 <!-- แท็บเลือกมุมมอง -->
@@ -107,12 +115,17 @@ require_once __DIR__ . '/includes/header.php';
     </li>
     <li class="nav-item" role="presentation">
         <button class="nav-link fw-semibold" id="approved-tab" data-bs-toggle="pill" data-bs-target="#approved-content" type="button" role="tab">
-            <i class="fas fa-check-circle text-success me-1"></i> เห็นชอบแล้ว / พร้อมพิมพ์ (<?= count($approvedList) ?>)
+            <i class="fas fa-check-circle text-success me-1"></i> เห็นชอบแล้ว / รอเดินทาง (<?= count($approvedList) ?>)
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link fw-semibold" id="completed-tab" data-bs-toggle="pill" data-bs-target="#completed-content" type="button" role="tab">
+            <i class="fas fa-flag-checkered text-primary me-1"></i> สิ้นสุดการใช้รถแล้ว (<?= count($completedList) ?>)
         </button>
     </li>
     <li class="nav-item" role="presentation">
         <button class="nav-link fw-semibold" id="all-tab" data-bs-toggle="pill" data-bs-target="#all-content" type="button" role="tab">
-            <i class="fas fa-list text-primary me-1"></i> คำขอทั้งหมด (<?= count($allBookings) ?>)
+            <i class="fas fa-list text-secondary me-1"></i> คำขอทั้งหมด (<?= count($allBookings) ?>)
         </button>
     </li>
     <li class="nav-item" role="presentation">
@@ -218,12 +231,64 @@ require_once __DIR__ . '/includes/header.php';
                             <div><i class="fas fa-calendar-alt text-primary me-1"></i><strong>วันที่:</strong> <?= thaiDateShort($item['start_datetime']) ?></div>
                         </div>
 
-                        <div class="mt-auto d-flex gap-2">
-                            <a href="print_form.php?id=<?= $item['id'] ?>" target="_blank" class="btn btn-success flex-grow-1 fw-bold">
-                                <i class="fas fa-print me-1"></i> พิมพ์แบบฟอร์ม A4
+                        <div class="mt-auto">
+                            <div class="d-flex gap-2 mb-2">
+                                <a href="print_form.php?id=<?= $item['id'] ?>" target="_blank" class="btn btn-success flex-grow-1 fw-bold btn-sm">
+                                    <i class="fas fa-print me-1"></i> พิมพ์แบบฟอร์ม A4
+                                </a>
+                                <a href="booking_detail.php?id=<?= $item['id'] ?>" class="btn btn-outline-secondary btn-sm" title="ดูรายละเอียด">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                            </div>
+                            <a href="booking_detail.php?id=<?= $item['id'] ?>" class="btn btn-outline-primary btn-sm w-100 fw-semibold">
+                                <i class="fas fa-flag-checkered me-1"></i> บันทึกสิ้นสุดการใช้รถ
                             </a>
-                            <a href="booking_detail.php?id=<?= $item['id'] ?>" class="btn btn-outline-secondary">
-                                <i class="fas fa-eye"></i>
+                        </div>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+    </div>
+
+    <!-- แท็บ 3: สิ้นสุดการใช้รถแล้ว -->
+    <div class="tab-pane fade" id="completed-content" role="tabpanel">
+        <?php if (empty($completedList)): ?>
+            <div class="card card-custom p-5 text-center">
+                <i class="fas fa-flag-checkered text-muted fs-1 mb-3"></i>
+                <h5 class="fw-bold text-dark">ยังไม่มีรายการที่บันทึกสิ้นสุดการใช้รถ</h5>
+                <p class="text-muted small">เมื่อรถยนต์เสร็จสิ้นภารกิจและเจ้าหน้าที่บันทึกส่งมอบคืน รายการจะแสดงที่นี่</p>
+            </div>
+        <?php else: ?>
+            <div class="row g-3">
+                <?php foreach ($completedList as $item): ?>
+                <div class="col-md-6 col-lg-4">
+                    <div class="card card-custom h-100 p-3 border-top border-4 border-primary">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="badge bg-light text-dark border"><?= htmlspecialchars($item['doc_no'] ?? '-') ?></span>
+                            <div><?= getStatusBadge($item['status']) ?></div>
+                        </div>
+
+                        <h6 class="fw-bold text-primary mb-1"><?= htmlspecialchars($item['plate_number']) ?></h6>
+                        <div class="text-muted small mb-2"><?= htmlspecialchars($item['brand_model']) ?></div>
+
+                        <p class="text-dark small mb-2" style="min-height: 40px;">
+                            <strong>ภารกิจ:</strong> <?= htmlspecialchars($item['purpose']) ?>
+                        </p>
+
+                        <div class="bg-light p-2 rounded-2 small mb-3">
+                            <div><i class="fas fa-calendar-check text-success me-1"></i><strong>สิ้นสุดจริง:</strong> <?= !empty($item['actual_end_datetime']) ? thaiDateShort($item['actual_end_datetime']) : thaiDateShort($item['end_datetime']) ?></div>
+                            <div><i class="fas fa-tachometer-alt text-primary me-1"></i><strong>ระยะทาง:</strong> <?= (!empty($item['end_mileage']) && !empty($item['start_mileage']) && $item['end_mileage'] >= $item['start_mileage']) ? number_format($item['end_mileage'] - $item['start_mileage']) . ' กม.' : (!empty($item['end_mileage']) ? number_format($item['end_mileage']) . ' กม. (เลขไมล์คืน)' : '-') ?></div>
+                            <div><i class="fas fa-car-side text-secondary me-1"></i><strong>สภาพรถ:</strong> <span class="badge bg-success-subtle text-success"><?= htmlspecialchars($item['vehicle_condition'] ?? 'ปกติ') ?></span></div>
+                            <div><i class="fas fa-user-check text-muted me-1"></i><strong>ผู้ส่งคืน:</strong> <?= htmlspecialchars($item['returned_by'] ?? '-') ?></div>
+                        </div>
+
+                        <div class="mt-auto d-flex gap-2">
+                            <a href="booking_detail.php?id=<?= $item['id'] ?>" class="btn btn-primary flex-grow-1 fw-bold btn-sm">
+                                <i class="fas fa-file-alt me-1"></i> ดูบันทึกการส่งคืน
+                            </a>
+                            <a href="print_form.php?id=<?= $item['id'] ?>" target="_blank" class="btn btn-outline-secondary btn-sm" title="พิมพ์ A4">
+                                <i class="fas fa-print"></i>
                             </a>
                         </div>
                     </div>

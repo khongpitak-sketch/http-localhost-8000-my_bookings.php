@@ -6,7 +6,8 @@ require_once __DIR__ . '/includes/header.php';
 // ดึงสถิติ (ไม่รวมคำขอเท็จ/สแปม)
 $totalBookings = $pdo->query("SELECT COUNT(*) FROM bookings WHERE status != 'rejected_fraud' AND (is_flagged_fake IS NULL OR is_flagged_fake = 0)")->fetchColumn();
 $pendingBookings = $pdo->query("SELECT COUNT(*) FROM bookings WHERE status LIKE 'pending_%' AND (is_flagged_fake IS NULL OR is_flagged_fake = 0)")->fetchColumn();
-$approvedBookings = $pdo->query("SELECT COUNT(*) FROM bookings WHERE status IN ('approved', 'completed')")->fetchColumn();
+$approvedBookings = $pdo->query("SELECT COUNT(*) FROM bookings WHERE status = 'approved'")->fetchColumn();
+$completedBookings = $pdo->query("SELECT COUNT(*) FROM bookings WHERE status = 'completed'")->fetchColumn();
 $totalVehicles = $pdo->query("SELECT COUNT(*) FROM vehicles WHERE status = 'active'")->fetchColumn();
 
 // ดึงรายการคำขอล่าสุด (ไม่รวมคำขอเท็จ/สแปม)
@@ -29,12 +30,17 @@ $eventsData = $pdo->query("
 
 foreach ($eventsData as $ev) {
     $color = '#ffc107'; // pending
+    $prefix = '';
     if ($ev['status'] == 'completed') {
-        $color = '#198754'; // approved
+        $color = '#0d6efd'; // completed (primary blue)
+        $prefix = '[สิ้นสุดภารกิจ] ';
+    } elseif ($ev['status'] == 'approved') {
+        $color = '#198754'; // approved (green)
+        $prefix = '[อนุมัติแล้ว] ';
     }
     $calendarEvents[] = [
         'id' => $ev['id'],
-        'title' => $ev['plate_number'] . ' - ' . $ev['purpose'] . ' (' . $ev['requester_name'] . ')',
+        'title' => $prefix . $ev['plate_number'] . ' - ' . $ev['purpose'] . ' (' . $ev['requester_name'] . ')',
         'start' => $ev['start_datetime'],
         'end' => $ev['end_datetime'],
         'backgroundColor' => $color,
@@ -65,54 +71,67 @@ foreach ($eventsData as $ev) {
 
 <div class="row g-3 mb-4">
     <!-- กล่องสถิติ -->
-    <div class="col-md-3 col-sm-6">
-        <div class="card card-custom p-3 border-start border-4 border-primary">
+    <div class="col-xl col-md-4 col-sm-6">
+        <div class="card card-custom p-3 border-start border-4 border-secondary h-100">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <div class="text-muted small">คำขอทั้งหมด</div>
-                    <div class="fs-3 fw-bold text-primary"><?= $totalBookings ?></div>
+                    <div class="fs-4 fw-bold text-secondary"><?= $totalBookings ?></div>
                 </div>
-                <div class="bg-primary-subtle text-primary p-3 rounded-circle">
-                    <i class="fas fa-file-alt fs-4"></i>
+                <div class="bg-secondary-subtle text-secondary p-3 rounded-circle">
+                    <i class="fas fa-file-alt fs-5"></i>
                 </div>
             </div>
         </div>
     </div>
-    <div class="col-md-3 col-sm-6">
-        <div class="card card-custom p-3 border-start border-4 border-warning">
+    <div class="col-xl col-md-4 col-sm-6">
+        <div class="card card-custom p-3 border-start border-4 border-warning h-100">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <div class="text-muted small">อยู่ระหว่างพิจารณา</div>
-                    <div class="fs-3 fw-bold text-warning"><?= $pendingBookings ?></div>
+                    <div class="fs-4 fw-bold text-warning"><?= $pendingBookings ?></div>
                 </div>
                 <div class="bg-warning-subtle text-warning p-3 rounded-circle">
-                    <i class="fas fa-clock fs-4"></i>
+                    <i class="fas fa-clock fs-5"></i>
                 </div>
             </div>
         </div>
     </div>
-    <div class="col-md-3 col-sm-6">
-        <div class="card card-custom p-3 border-start border-4 border-success">
+    <div class="col-xl col-md-4 col-sm-6">
+        <div class="card card-custom p-3 border-start border-4 border-success h-100">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <div class="text-muted small">อนุมัติแล้ว</div>
-                    <div class="fs-3 fw-bold text-success"><?= $approvedBookings ?></div>
+                    <div class="fs-4 fw-bold text-success"><?= $approvedBookings ?></div>
                 </div>
                 <div class="bg-success-subtle text-success p-3 rounded-circle">
-                    <i class="fas fa-check-circle fs-4"></i>
+                    <i class="fas fa-check-circle fs-5"></i>
                 </div>
             </div>
         </div>
     </div>
-    <div class="col-md-3 col-sm-6">
-        <div class="card card-custom p-3 border-start border-4 border-info">
+    <div class="col-xl col-md-6 col-sm-6">
+        <div class="card card-custom p-3 border-start border-4 border-primary h-100">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="text-muted small">สิ้นสุดการใช้รถแล้ว</div>
+                    <div class="fs-4 fw-bold text-primary"><?= $completedBookings ?></div>
+                </div>
+                <div class="bg-primary-subtle text-primary p-3 rounded-circle">
+                    <i class="fas fa-flag-checkered fs-5"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl col-md-6 col-sm-6">
+        <div class="card card-custom p-3 border-start border-4 border-info h-100">
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <div class="text-muted small">รถยนต์ที่พร้อมบริการ</div>
-                    <div class="fs-3 fw-bold text-info"><?= $totalVehicles ?> คัน</div>
+                    <div class="fs-4 fw-bold text-info"><?= $totalVehicles ?> คัน</div>
                 </div>
                 <div class="bg-info-subtle text-info p-3 rounded-circle">
-                    <i class="fas fa-van-shuttle fs-4"></i>
+                    <i class="fas fa-van-shuttle fs-5"></i>
                 </div>
             </div>
         </div>
@@ -137,8 +156,9 @@ foreach ($eventsData as $ev) {
                 <h5 class="fw-bold mb-0 text-dark">
                     <i class="fas fa-calendar-alt text-primary me-2"></i>ปฏิทินตารางการใช้รถยนต์
                 </h5>
-                <div class="small">
-                    <span class="badge bg-success me-1">■ อนุมัติแล้ว</span>
+                <div class="small d-flex flex-wrap gap-1">
+                    <span class="badge bg-primary"><i class="fas fa-flag-checkered me-1"></i> สิ้นสุดการใช้รถ</span>
+                    <span class="badge bg-success">■ อนุมัติแล้ว</span>
                     <span class="badge bg-warning text-dark">■ อยู่ระหว่างพิจารณา</span>
                 </div>
             </div>
@@ -164,7 +184,7 @@ foreach ($eventsData as $ev) {
                     <a href="booking_detail.php?id=<?= $b['id'] ?>" class="list-group-item list-group-item-action px-2 py-3 border-bottom">
                         <div class="d-flex w-100 justify-content-between align-items-center mb-1">
                             <span class="badge bg-light text-dark border"><?= htmlspecialchars($b['doc_no'] ?? '-') ?></span>
-                            <div><?= getStatusBadge($b['status']) ?></div>
+                            <div><?= getStatusBadge($b['status'], $b) ?></div>
                         </div>
                         <h6 class="mb-1 text-primary fw-bold fs-6"><?= htmlspecialchars($b['plate_number']) ?></h6>
                         <p class="mb-1 text-muted small text-truncate" title="<?= htmlspecialchars($b['purpose']) ?>">
