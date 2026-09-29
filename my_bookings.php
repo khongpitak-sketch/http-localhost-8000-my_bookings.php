@@ -25,7 +25,7 @@ if (!empty($searchQuery)) {
     $stmt = $pdo->prepare("
         SELECT b.*, v.brand_model, v.vehicle_type 
         FROM bookings b 
-        JOIN vehicles v ON b.vehicle_id = v.id 
+        LEFT JOIN vehicles v ON b.vehicle_id = v.id 
         WHERE (b.doc_no LIKE ? 
            OR b.requester_name LIKE ? 
            OR b.requester_department LIKE ?
@@ -40,7 +40,7 @@ if (!empty($searchQuery)) {
     $stmt = $pdo->query("
         SELECT b.*, v.brand_model, v.vehicle_type 
         FROM bookings b 
-        JOIN vehicles v ON b.vehicle_id = v.id 
+        LEFT JOIN vehicles v ON b.vehicle_id = v.id 
         WHERE 1=1 $fraudFilter
         ORDER BY b.id DESC
     ");

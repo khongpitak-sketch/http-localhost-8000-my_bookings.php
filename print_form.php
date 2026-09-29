@@ -467,7 +467,7 @@ $emblemBase64 = file_exists($emblemPath) ? 'data:image/png;base64,' . base64_enc
             <div style="margin-top: 5px; text-align: center; line-height: 1.2;">
                 ลงชื่อ <span class="dots-inline" style="min-width: 130px;"><?= (!empty($app['office_status'])) ? htmlspecialchars($app['office_signer'] ?? 'นางสาววิภาดา ทองปิ่น') : '' ?></span><br>
                 (<?= (!empty($app['office_status'])) ? htmlspecialchars($app['office_signer'] ?? 'นางสาววิภาดา ทองปิ่น') : 'นางสาววิภาดา ทองปิ่น' ?>)<br>
-                หัวหน้าสำนักงานคณบดี<br>
+                รักษาการในตำแหน่งหัวหน้าสำนักงานคณบดี<br>
                 <span style="display: inline-block; margin-top: 1px;">
                     <span class="dots-inline" style="min-width: 25px;"><?= (!empty($app['office_signed_at'])) ? date('j', strtotime($app['office_signed_at'])) : '' ?></span> /
                     <span class="dots-inline" style="min-width: 45px;"><?= (!empty($app['office_signed_at'])) ? parseDateParts($app['office_signed_at'])['m'] : '' ?></span> /

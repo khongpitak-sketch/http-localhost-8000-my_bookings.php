@@ -34,7 +34,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 // คำขอที่รอหัวหน้างานอาคารสถานที่พิจารณา (เฉพาะคำขอปกติ ไม่ใช่ข้อมูลเท็จ)
 $pendingSql = "SELECT b.*, v.brand_model, v.vehicle_type 
                FROM bookings b 
-               JOIN vehicles v ON b.vehicle_id = v.id 
+               LEFT JOIN vehicles v ON b.vehicle_id = v.id 
                WHERE b.status = 'pending_facility' AND (b.is_flagged_fake IS NULL OR b.is_flagged_fake = 0)
                ORDER BY b.id DESC";
 $pendingList = $pdo->query($pendingSql)->fetchAll();
@@ -42,7 +42,7 @@ $pendingList = $pdo->query($pendingSql)->fetchAll();
 // คำขอที่เห็นชอบแล้ว / รอเดินทางหรืออยู่ระหว่างใช้งาน
 $approvedSql = "SELECT b.*, v.brand_model, v.vehicle_type 
                 FROM bookings b 
-                JOIN vehicles v ON b.vehicle_id = v.id 
+                LEFT JOIN vehicles v ON b.vehicle_id = v.id 
                 WHERE b.status IN ('approved', 'pending_office', 'pending_dean', 'pending_driver') 
                 ORDER BY b.id DESC";
 $approvedList = $pdo->query($approvedSql)->fetchAll();
@@ -50,7 +50,7 @@ $approvedList = $pdo->query($approvedSql)->fetchAll();
 // คำขอที่สิ้นสุดการใช้รถแล้ว
 $completedSql = "SELECT b.*, v.brand_model, v.vehicle_type 
                  FROM bookings b 
-                 JOIN vehicles v ON b.vehicle_id = v.id 
+                 LEFT JOIN vehicles v ON b.vehicle_id = v.id 
                  WHERE b.status = 'completed' 
                  ORDER BY b.id DESC";
 $completedList = $pdo->query($completedSql)->fetchAll();
@@ -58,7 +58,7 @@ $completedList = $pdo->query($completedSql)->fetchAll();
 // คำขอที่เป็นเท็จ / สแปมที่ถูกปฏิเสธ
 $fraudSql = "SELECT b.*, v.brand_model, v.vehicle_type 
              FROM bookings b 
-             JOIN vehicles v ON b.vehicle_id = v.id 
+             LEFT JOIN vehicles v ON b.vehicle_id = v.id 
              WHERE b.status = 'rejected_fraud' OR b.is_flagged_fake = 1
              ORDER BY b.id DESC";
 $fraudList = $pdo->query($fraudSql)->fetchAll();
@@ -67,7 +67,7 @@ $fraudList = $pdo->query($fraudSql)->fetchAll();
 $allBookings = $pdo->query("
     SELECT b.*, v.brand_model, v.vehicle_type 
     FROM bookings b 
-    JOIN vehicles v ON b.vehicle_id = v.id 
+    LEFT JOIN vehicles v ON b.vehicle_id = v.id 
     ORDER BY b.id DESC
 ")->fetchAll();
 

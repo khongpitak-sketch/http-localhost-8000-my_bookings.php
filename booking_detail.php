@@ -13,7 +13,7 @@ if (!$bookingId) {
 $stmt = $pdo->prepare("
     SELECT b.*, v.brand_model, v.vehicle_type, v.seats 
     FROM bookings b 
-    JOIN vehicles v ON b.vehicle_id = v.id 
+    LEFT JOIN vehicles v ON b.vehicle_id = v.id 
     WHERE b.id = ?
 ");
 $stmt->execute([$bookingId]);

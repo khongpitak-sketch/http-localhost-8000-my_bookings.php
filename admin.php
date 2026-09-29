@@ -177,7 +177,7 @@ $stats = [
 $allBookings = $pdo->query("
     SELECT b.*, v.brand_model, v.vehicle_type 
     FROM bookings b 
-    JOIN vehicles v ON b.vehicle_id = v.id 
+    LEFT JOIN vehicles v ON b.vehicle_id = v.id 
     ORDER BY b.id DESC
 ")->fetchAll();
 
@@ -296,16 +296,6 @@ require_once __DIR__ . '/includes/header.php';
                         <h5 class="fw-bold text-dark mb-0">รายการคำขอทั้งหมดในระบบ</h5>
                         <div class="text-muted small">แอดมินสามารถเปลี่ยนสถานะด่วนหรือลบรายการได้</div>
                     </div>
-                    <?php if (!empty($allBookings)): ?>
-                    <div>
-                        <form method="POST" onsubmit="return confirm('⚠️ ยืนยันล้างข้อมูลคำขอทั้งหมดในระบบ?\nข้อมูลคำขอและการอนุมัติทั้งหมดจะถูกลบเพื่อเริ่มต้นใช้งานจริง');" class="d-inline">
-                            <input type="hidden" name="action" value="clear_all_bookings">
-                            <button type="submit" class="btn btn-outline-danger btn-sm">
-                                <i class="fas fa-trash-can me-1"></i> ล้างคำขอทดสอบทั้งหมด (เริ่มระบบจริง)
-                            </button>
-                        </form>
-                    </div>
-                    <?php endif; ?>
                 </div>
 
                 <div class="table-responsive">
@@ -498,7 +488,7 @@ require_once __DIR__ . '/includes/header.php';
                                         'admin' => '<span class="badge bg-danger">แอดมิน (Admin)</span>',
                                         'requester' => '<span class="badge bg-secondary">ผู้ขอใช้รถ</span>',
                                         'facility_head' => '<span class="badge bg-warning text-dark">หัวหน้างานอาคารสถานที่</span>',
-                                        'office_head' => '<span class="badge bg-info text-dark">หัวหน้าสำนักงานคณบดี</span>',
+                                        'office_head' => '<span class="badge bg-info text-dark">รักษาการในตำแหน่งหัวหน้าสำนักงานคณบดี</span>',
                                         'dean' => '<span class="badge bg-primary">คณบดี</span>',
                                         'driver' => '<span class="badge bg-dark">พนักงานขับรถ</span>'
                                     ];
@@ -559,7 +549,7 @@ require_once __DIR__ . '/includes/header.php';
                                                     <select name="role" class="form-select form-select-sm">
                                                         <option value="requester" <?= ($u['role'] == 'requester') ? 'selected' : '' ?>>ผู้ขอใช้รถ</option>
                                                         <option value="driver" <?= ($u['role'] == 'driver') ? 'selected' : '' ?>>พนักงานขับรถ</option>
-                                                        <option value="office_head" <?= ($u['role'] == 'office_head') ? 'selected' : '' ?>>หัวหน้าสำนักงานคณบดี</option>
+                                                        <option value="office_head" <?= ($u['role'] == 'office_head') ? 'selected' : '' ?>>รักษาการในตำแหน่งหัวหน้าสำนักงานคณบดี</option>
                                                         <option value="dean" <?= ($u['role'] == 'dean') ? 'selected' : '' ?>>คณบดี</option>
                                                         <option value="facility_head" <?= ($u['role'] == 'facility_head') ? 'selected' : '' ?>>หัวหน้างานอาคารสถานที่</option>
                                                         <option value="admin" <?= ($u['role'] == 'admin') ? 'selected' : '' ?>>แอดมิน (Admin)</option>
@@ -743,7 +733,7 @@ require_once __DIR__ . '/includes/header.php';
                         <select name="role" class="form-select form-select-sm">
                             <option value="requester">ผู้ขอใช้รถ (Requester)</option>
                             <option value="facility_head">หัวหน้างานอาคารสถานที่ (ลำดับ 1)</option>
-                            <option value="office_head">หัวหน้าสำนักงานคณบดี (ลำดับ 2)</option>
+                            <option value="office_head">รักษาการในตำแหน่งหัวหน้าสำนักงานคณบดี (ลำดับ 2)</option>
                             <option value="dean">คณบดี (ลำดับ 3)</option>
                             <option value="driver">พนักงานขับรถยนต์ (ลำดับ 4)</option>
                             <option value="admin">ผู้ดูแลระบบ (Admin)</option>

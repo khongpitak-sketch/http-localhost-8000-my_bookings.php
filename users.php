@@ -193,7 +193,7 @@ require_once __DIR__ . '/includes/header.php';
                     <option value="admin">ผู้ดูแลระบบ (Admin)</option>
                     <option value="requester">ผู้ขอใช้รถ / คณาจารย์</option>
                     <option value="driver">พนักงานขับรถยนต์</option>
-                    <option value="office_head">หัวหน้าสำนักงานคณบดี</option>
+                    <option value="office_head">รักษาการในตำแหน่งหัวหน้าสำนักงานคณบดี</option>
                     <option value="dean">คณบดี</option>
                     <option value="facility_head">หัวหน้าอาคารสถานที่</option>
                 </select>
@@ -340,7 +340,7 @@ require_once __DIR__ . '/includes/header.php';
                                         <select name="role" class="form-select form-select-sm">
                                             <option value="requester" <?= ($u['role'] == 'requester') ? 'selected' : '' ?>>ผู้ขอใช้รถ (อาจารย์/บุคลากร)</option>
                                             <option value="driver" <?= ($u['role'] == 'driver') ? 'selected' : '' ?>>พนักงานขับรถยนต์</option>
-                                            <option value="office_head" <?= ($u['role'] == 'office_head') ? 'selected' : '' ?>>หัวหน้าสำนักงานคณบดี</option>
+                                            <option value="office_head" <?= ($u['role'] == 'office_head') ? 'selected' : '' ?>>รักษาการในตำแหน่งหัวหน้าสำนักงานคณบดี</option>
                                             <option value="dean" <?= ($u['role'] == 'dean') ? 'selected' : '' ?>>คณบดี</option>
                                             <option value="facility_head" <?= ($u['role'] == 'facility_head') ? 'selected' : '' ?>>หัวหน้างานอาคารสถานที่</option>
                                             <option value="admin" <?= ($u['role'] == 'admin') ? 'selected' : '' ?>>ผู้ดูแลระบบ (Admin)</option>
@@ -422,7 +422,7 @@ require_once __DIR__ . '/includes/header.php';
                         <select name="role" class="form-select form-select-sm">
                             <option value="requester" selected>ผู้ขอใช้รถ (อาจารย์/บุคลากร)</option>
                             <option value="driver">พนักงานขับรถยนต์</option>
-                            <option value="office_head">หัวหน้าสำนักงานคณบดี</option>
+                            <option value="office_head">รักษาการในตำแหน่งหัวหน้าสำนักงานคณบดี</option>
                             <option value="dean">คณบดี</option>
                             <option value="facility_head">หัวหน้างานอาคารสถานที่</option>
                             <option value="admin">ผู้ดูแลระบบ (Admin)</option>

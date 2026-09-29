@@ -14,7 +14,7 @@ $totalVehicles = $pdo->query("SELECT COUNT(*) FROM vehicles WHERE status = 'acti
 $recentBookings = $pdo->query("
     SELECT b.*, v.brand_model 
     FROM bookings b 
-    JOIN vehicles v ON b.vehicle_id = v.id 
+    LEFT JOIN vehicles v ON b.vehicle_id = v.id 
     WHERE b.status != 'rejected_fraud' AND (b.is_flagged_fake IS NULL OR b.is_flagged_fake = 0)
     ORDER BY b.id DESC 
     LIMIT 6
