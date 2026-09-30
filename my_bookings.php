@@ -18,6 +18,15 @@ if (isset($_GET['cancel_id'])) {
 
 $searchQuery = trim($_GET['q'] ?? '');
 
+// ตัวกรองรายการ (ทั้งหมด หรือ เฉพาะคำขอของฉัน)
+$filter = $_GET['filter'] ?? 'all';
+$userFilter = "";
+if ($filter === 'mine' && $isLoggedIn) {
+    $uId = (int)($currentUser['id'] ?? 0);
+    $uName = $pdo->quote($currentUser['fullname'] ?? '');
+    $userFilter = " AND (b.user_id = $uId OR b.requester_name = $uName)";
+}
+
 // ดึงรายการคำขอ (ผู้ใช้ทั่วไปจะไม่เห็นคำขอที่ถูกระงับเนื่องจากเป็นข้อมูลเท็จ/สแปม)
 $fraudFilter = (!$isAdmin) ? " AND (b.status != 'rejected_fraud' AND (b.is_flagged_fake IS NULL OR b.is_flagged_fake = 0))" : "";
 
@@ -32,6 +41,7 @@ if (!empty($searchQuery)) {
            OR b.route_to LIKE ?
            OR b.purpose LIKE ?)
            $fraudFilter
+           $userFilter
         ORDER BY b.id DESC
     ");
     $term = '%' . $searchQuery . '%';
@@ -41,7 +51,7 @@ if (!empty($searchQuery)) {
         SELECT b.*, v.brand_model, v.vehicle_type 
         FROM bookings b 
         LEFT JOIN vehicles v ON b.vehicle_id = v.id 
-        WHERE 1=1 $fraudFilter
+        WHERE 1=1 $fraudFilter $userFilter
         ORDER BY b.id DESC
     ");
 }
@@ -70,9 +80,26 @@ require_once __DIR__ . '/includes/header.php';
     </div>
 </div>
 
+<?php if ($isLoggedIn): ?>
+<!-- แถบเลือกดูคำขอ -->
+<div class="d-flex mb-3 gap-2">
+    <a href="my_bookings.php?filter=all<?= !empty($searchQuery) ? '&q=' . urlencode($searchQuery) : '' ?>" 
+       class="btn btn-sm <?= ($filter !== 'mine') ? 'btn-primary' : 'btn-outline-secondary bg-white' ?> px-3">
+        <i class="fas fa-list me-1"></i> คำขอทั้งหมด
+    </a>
+    <a href="my_bookings.php?filter=mine<?= !empty($searchQuery) ? '&q=' . urlencode($searchQuery) : '' ?>" 
+       class="btn btn-sm <?= ($filter === 'mine') ? 'btn-primary' : 'btn-outline-secondary bg-white' ?> px-3">
+        <i class="fas fa-user-tag me-1"></i> เฉพาะคำขอของฉัน (<?= htmlspecialchars($currentUser['fullname']) ?>)
+    </a>
+</div>
+<?php endif; ?>
+
 <!-- ค้นหาคำขอ -->
 <div class="card card-custom p-3 mb-4 bg-light border-0 shadow-sm">
     <form method="GET" action="my_bookings.php" class="row g-2 align-items-center">
+        <?php if ($filter === 'mine'): ?>
+            <input type="hidden" name="filter" value="mine">
+        <?php endif; ?>
         <div class="col-md-9 col-lg-10">
             <div class="input-group">
                 <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
@@ -84,7 +111,7 @@ require_once __DIR__ . '/includes/header.php';
                 <i class="fas fa-search me-1"></i> ค้นหา
             </button>
             <?php if (!empty($searchQuery)): ?>
-                <a href="my_bookings.php" class="btn btn-outline-secondary btn-sm" title="ล้างการค้นหา">
+                <a href="my_bookings.php<?= ($filter === 'mine') ? '?filter=mine' : '' ?>" class="btn btn-outline-secondary btn-sm" title="ล้างการค้นหา">
                     <i class="fas fa-times"></i>
                 </a>
             <?php endif; ?>

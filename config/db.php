@@ -33,6 +33,11 @@ try {
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
     $pdo->exec("PRAGMA foreign_keys = ON;");
+    $pdo->exec("PRAGMA journal_mode = WAL;");
+    $pdo->exec("PRAGMA synchronous = NORMAL;");
+    $pdo->exec("PRAGMA cache_size = -64000;");
+    $pdo->exec("PRAGMA busy_timeout = 5000;");
+    $pdo->exec("PRAGMA temp_store = MEMORY;");
 } catch (PDOException $e) {
     die("Database Connection Error: " . $e->getMessage());
 }
@@ -168,6 +173,9 @@ try {
     if (!in_array('return_recorded_at', $existingCols)) {
         $pdo->exec("ALTER TABLE bookings ADD COLUMN return_recorded_at DATETIME");
     }
+    if (!in_array('requester_phone', $existingCols)) {
+        $pdo->exec("ALTER TABLE bookings ADD COLUMN requester_phone TEXT");
+    }
 
     // อัปเกรดคอลัมน์ในตาราง users สำหรับเก็บรหัสผ่านที่ Admin ตรวจสอบและแก้ไขได้
     $existingUserCols = $pdo->query("PRAGMA table_info(users)")->fetchAll(PDO::FETCH_COLUMN, 1);
@@ -180,8 +188,20 @@ try {
     if (!in_array('remember_token_expiry', $existingUserCols)) {
         $pdo->exec("ALTER TABLE users ADD COLUMN remember_token_expiry DATETIME");
     }
+
+    // สร้าง Index เพื่อประสิทธิภาพสูงสุดในการค้นหาและประมวลผลข้อมูล
+    $pdo->exec("
+        CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);
+        CREATE INDEX IF NOT EXISTS idx_bookings_user_id ON bookings(user_id);
+        CREATE INDEX IF NOT EXISTS idx_bookings_vehicle_id ON bookings(vehicle_id);
+        CREATE INDEX IF NOT EXISTS idx_bookings_start_dt ON bookings(start_datetime);
+        CREATE INDEX IF NOT EXISTS idx_bookings_end_dt ON bookings(end_datetime);
+        CREATE INDEX IF NOT EXISTS idx_bookings_doc_no ON bookings(doc_no);
+        CREATE INDEX IF NOT EXISTS idx_approvals_booking_id ON approvals(booking_id);
+        CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+    ");
 } catch (Exception $e) {
-    // ข้ามกรณีมีคอลัมน์อยู่แล้ว
+    // ข้ามกรณีมีคอลัมน์หรือ Index อยู่แล้ว
 }
 
 // ฟังก์ชันดึง Client IP Address จริง

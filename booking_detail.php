@@ -206,6 +206,9 @@ require_once __DIR__ . '/includes/header.php';
                             <td>
                                 <strong><?= htmlspecialchars($booking['requester_name']) ?></strong><br>
                                 <span class="text-muted small">ตำแหน่ง <?= htmlspecialchars($booking['requester_position']) ?> (<?= htmlspecialchars($booking['requester_department']) ?>)</span>
+                                <?php if (!empty($booking['requester_phone'])): ?>
+                                    <br><span class="text-dark small"><i class="fas fa-phone-alt text-success me-1"></i>โทร: <strong><?= htmlspecialchars($booking['requester_phone']) ?></strong></span>
+                                <?php endif; ?>
                             </td>
                             <th class="bg-light" style="width: 25%;">รถยนต์ที่ขอใช้</th>
                             <td>

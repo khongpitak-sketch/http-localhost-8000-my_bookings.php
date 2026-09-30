@@ -22,6 +22,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $requester_name = trim($_POST['requester_name'] ?? '');
     $requester_position = trim($_POST['requester_position'] ?? '');
     $requester_department = trim($_POST['requester_department'] ?? '');
+    $requester_phone = trim($_POST['requester_phone'] ?? ($currentUser['phone'] ?? ''));
     $vehicle_id = (int)($_POST['vehicle_id'] ?? 0);
     $purpose = trim($_POST['purpose'] ?? '');
     $route_from = trim($_POST['route_from'] ?? '');
@@ -72,10 +73,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $start_datetime = "$start_date $start_time:00";
     $end_datetime = "$end_date $end_time:00";
 
-    // ระบบป้องกันคำขอเท็จและสแปม (Anti-Fraud & Anti-Spam Verification)
+    // ระบบความปลอดภัยระดับระบบจริง (Production Security Verification)
     $botTrap = trim($_POST['pnu_verification_trap'] ?? '');
-    $securityAns = isset($_POST['security_challenge']) ? (int)$_POST['security_challenge'] : null;
-    $expectedAns = (int)($_SESSION['captcha_ans'] ?? -999);
     $declarationConfirmed = !empty($_POST['declaration_confirmed']);
 
     $clientIP = getClientIP();
@@ -85,20 +84,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     if (!empty($botTrap)) {
         $error = 'ตรวจพบความผิดปกติในการส่งข้อมูล ระบบขอระงับคำขอนี้เพื่อความปลอดภัย';
     }
-    // 2. ตรวจสอบคำถามความปลอดภัย (Math Challenge)
-    elseif ($securityAns === null || $securityAns !== $expectedAns) {
-        $error = 'รหัสความปลอดภัย (คำถามป้องกันสแปม) ไม่ถูกต้อง กรุณากรอกคำตอบตัวเลขให้ถูกต้อง';
-    }
-    // 3. ตรวจสอบการรับรองข้อมูลจริง
+    // 2. ตรวจสอบการรับรองข้อมูลจริงตามระเบียบ
     elseif (!$declarationConfirmed) {
         $error = 'กรุณาติ๊กรับรองว่าข้อมูลทั้งหมดเป็นความจริงตามระเบียบของทางราชการ';
     }
     else {
-        // ตรวจสอบ Rate Limit ป้องกันการยิงคำขอสแปมซ้ำซากจาก IP เดียวกัน
+        // ตรวจสอบ Rate Limit ป้องกันการกดซ้ำซ้อนผิดปกติ (จำกัด 20 ครั้งใน 5 นาที)
         $recentStmt = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE client_ip = ? AND created_at >= datetime('now', '-5 minutes')");
         $recentStmt->execute([$clientIP]);
-        if ((int)$recentStmt->fetchColumn() >= 6) {
-            $error = 'ตรวจพบการส่งคำขอถี่ผิดปกติจากอุปกรณ์ของท่าน กรุณารอประมาณ 5 นาทีก่อนทำรายการใหม่';
+        if ((int)$recentStmt->fetchColumn() >= 20) {
+            $error = 'ตรวจพบการส่งคำขอถี่เกินไป กรุณารอสักครู่ก่อนทำรายการใหม่';
         }
     }
 
@@ -145,21 +140,33 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 $veh = $vehStmt->fetch();
                 $plate_number = $veh['plate_number'] ?? '';
 
-                // รันเลขที่เอกสาร เช่น ควจ. 003/2567
+                // รันเลขที่เอกสาร เช่น ควจ. 005/2569 โดยค้นหาเลขสูงสุดของปี พ.ศ. ปัจจุบัน ป้องกันเลขซ้ำ
                 $currentYearThai = date('Y') + 543;
-                $countThisYear = $pdo->query("SELECT COUNT(*) FROM bookings WHERE strftime('%Y', created_date) = '" . date('Y') . "'")->fetchColumn();
-                $docNo = sprintf("ควจ. %03d/%d", $countThisYear + 1, $currentYearThai);
+                $stmtDocs = $pdo->prepare("SELECT doc_no FROM bookings WHERE doc_no LIKE ?");
+                $stmtDocs->execute(["%/{$currentYearThai}"]);
+                $existingDocs = $stmtDocs->fetchAll(PDO::FETCH_COLUMN);
+                $maxDocNum = 0;
+                foreach ($existingDocs as $d) {
+                    if (preg_match('/(\d+)\/' . $currentYearThai . '/', $d, $matches)) {
+                        $n = (int)$matches[1];
+                        if ($n > $maxDocNum) {
+                            $maxDocNum = $n;
+                        }
+                    }
+                }
+                $nextDocNum = $maxDocNum + 1;
+                $docNo = sprintf("ควจ. %03d/%d", $nextDocNum, $currentYearThai);
 
                 // บันทึกคำขอพร้อมข้อมูลความปลอดภัย (IP Address, User Agent)
                 $insertBooking = $pdo->prepare("
                     INSERT INTO bookings (
                         doc_no, created_date, user_id, requester_name, requester_position, requester_department,
-                        vehicle_id, plate_number, purpose, route_from, route_to, start_datetime, end_datetime,
+                        requester_phone, vehicle_id, plate_number, purpose, route_from, route_to, start_datetime, end_datetime,
                         passenger_count, passenger_names, controller_name, status,
                         client_ip, user_agent, is_flagged_fake
                     ) VALUES (
                         ?, date('now'), ?, ?, ?, ?,
-                        ?, ?, ?, ?, ?, ?, ?,
+                        ?, ?, ?, ?, ?, ?, ?, ?,
                         ?, ?, ?, 'pending_facility',
                         ?, ?, 0
                     )
@@ -170,6 +177,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     $requester_name,
                     $requester_position,
                     $requester_department,
+                    $requester_phone,
                     $vehicle_id,
                     $plate_number,
                     $purpose,
@@ -185,12 +193,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 ]);
                 $newBookingId = $pdo->lastInsertId();
 
-                // รีเฟรชคำถามความปลอดภัยข้อใหม่
-                $num1 = rand(2, 9);
-                $num2 = rand(1, 9);
-                $_SESSION['captcha_q'] = "$num1 + $num2 = ?";
-                $_SESSION['captcha_ans'] = $num1 + $num2;
-
                 // สร้างแถวในตาราง approvals
                 $pdo->prepare("INSERT INTO approvals (booking_id) VALUES (?)")->execute([$newBookingId]);
 
@@ -198,14 +200,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 exit;
             }
         }
-    }
-
-    // กรณีมีข้อผิดพลาด สุ่มคำถามความปลอดภัยข้อใหม่
-    if (!empty($error)) {
-        $num1 = rand(2, 9);
-        $num2 = rand(1, 9);
-        $_SESSION['captcha_q'] = "$num1 + $num2 = ?";
-        $_SESSION['captcha_ans'] = $num1 + $num2;
     }
 }
 
@@ -335,7 +329,7 @@ require_once __DIR__ . '/includes/header.php';
                         <?php endif; ?>
                     </div>
                     <div class="row g-3">
-                        <div class="col-md-5">
+                        <div class="col-md-4">
                             <label class="form-label fw-semibold">ชื่อ-นามสกุล ผู้ขอใช้รถ <span class="text-danger">*</span></label>
                             <input type="text" name="requester_name" class="form-control" 
                                    value="<?= htmlspecialchars($_POST['requester_name'] ?? $currentUser['fullname'] ?? '') ?>" 
@@ -347,11 +341,17 @@ require_once __DIR__ . '/includes/header.php';
                                    value="<?= htmlspecialchars($_POST['requester_position'] ?? $currentUser['position'] ?? '') ?>" 
                                    placeholder="เช่น อาจารย์ประจำสาขาวิชา" required>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label class="form-label fw-semibold">สาขาวิชา / หน่วยงาน <span class="text-danger">*</span></label>
                             <input type="text" name="requester_department" class="form-control" 
                                    value="<?= htmlspecialchars($_POST['requester_department'] ?? $currentUser['department'] ?? '') ?>" 
                                    placeholder="เช่น สาขาวิชาการจัดการ" required>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-semibold">เบอร์โทรศัพท์</label>
+                            <input type="text" name="requester_phone" class="form-control" 
+                                   value="<?= htmlspecialchars($_POST['requester_phone'] ?? $currentUser['phone'] ?? '') ?>" 
+                                   placeholder="08X-XXX-XXXX">
                         </div>
                     </div>
                 </div>
@@ -552,16 +552,27 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                 </div>
 
-                <!-- ส่วนที่ 5: การรับรองข้อมูลและระบบป้องกันคำขอเท็จ (Anti-Spam / Anti-Fraud) -->
-                <div class="card border-0 bg-white shadow-sm p-4 mb-4 rounded-3 border-start border-4 border-warning">
+                <!-- ส่วนที่ 5: การรับรองข้อมูลและส่งคำขอใช้งานจริง -->
+                <div class="card border-0 bg-white shadow-sm p-4 mb-4 rounded-3 border-start border-4 border-success">
                     <h6 class="fw-bold text-dark mb-3">
-                        <i class="fas fa-shield-halved text-warning me-2"></i>5. การรับรองข้อมูลและระบบป้องกันคำขอเท็จ (Anti-Spam)
+                        <i class="fas fa-file-circle-check text-success me-2"></i>5. การรับรองข้อมูลและการส่งคำขอใช้งานจริง
                     </h6>
 
                     <!-- Honeypot Trap (บอทแอบกรอกแต่มนุษย์ไม่เห็น) -->
                     <div style="display: none !important; opacity: 0; position: absolute; left: -9999px;">
                         <label>อย่ากรอกข้อมูลในช่องนี้</label>
                         <input type="text" name="pnu_verification_trap" value="" autocomplete="off" tabindex="-1">
+                    </div>
+
+                    <!-- บัญชีผู้ยื่นคำขอที่ได้รับการยืนยันตัวตนแล้ว -->
+                    <div class="alert alert-success d-flex flex-wrap align-items-center mb-3 py-2 px-3 gap-2">
+                        <i class="fas fa-id-badge fs-4 text-success me-2"></i>
+                        <div>
+                            <strong>ผู้ยื่นคำขอที่ได้รับการยืนยันตัวตน:</strong> 
+                            <span class="text-dark fw-bold"><?= htmlspecialchars($currentUser['fullname']) ?></span> 
+                            <span class="badge bg-success ms-1"><?= htmlspecialchars($currentUser['position']) ?></span>
+                            <span class="text-muted small ms-2">(บันทึกคำขอเข้าสู่บัญชีของท่านโดยตรง)</span>
+                        </div>
                     </div>
 
                     <!-- ข้อความรับรองตามระเบียบทางราชการ -->
@@ -572,22 +583,8 @@ require_once __DIR__ . '/includes/header.php';
                         </label>
                     </div>
 
-                    <!-- รหัสความปลอดภัย (Security Math Challenge) -->
-                    <div class="row align-items-center g-3 bg-light p-3 rounded-3 border">
-                        <div class="col-md-auto col-12">
-                            <span class="badge bg-primary fs-6 px-3 py-2">
-                                <i class="fas fa-calculator me-1"></i> คำถามป้องกันสแปม: <strong><?= htmlspecialchars($_SESSION['captcha_q'] ?? '5 + 3 = ?') ?></strong>
-                            </span>
-                        </div>
-                        <div class="col-md-3 col-6">
-                            <input type="number" name="security_challenge" id="security_challenge" class="form-control fw-bold text-center form-control-lg border-primary" 
-                                   placeholder="ใส่ผลลัพธ์ตัวเลข" required autocomplete="off">
-                        </div>
-                        <div class="col-12 mt-2">
-                            <small class="text-muted">
-                                <i class="fas fa-lock text-success me-1"></i>ระบบบันทึก IP Address (<?= htmlspecialchars(getClientIP()) ?>) เพื่อความปลอดภัยและป้องกันการส่งคำขอเท็จ
-                            </small>
-                        </div>
+                    <div class="small text-muted">
+                        <i class="fas fa-shield-alt text-primary me-1"></i>ระบบบันทึกความปลอดภัย: IP <?= htmlspecialchars(getClientIP()) ?> | บันทึกประวัติการจองลงฐานข้อมูลถาวร
                     </div>
                 </div>
 
