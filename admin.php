@@ -65,10 +65,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $alertType = 'success';
     }
 
-    // 2.1 ป้องกันการล้างข้อมูลประวัติการจองจริง (Protected Real Booking Data)
+    // 2.1 ล้างคำขอทั้งหมดเพื่อเริ่มต้นใช้งานจริงใหม่ (Reset all bookings for fresh start)
     if ($action === 'clear_all_bookings') {
-        $alertMsg = "ระบบรักษาความปลอดภัย: ปิดการล้างข้อมูลทั้งหมด เพื่อปกป้องข้อมูลประวัติการจองจริงของคณะฯ";
-        $alertType = 'warning';
+        $pdo->exec("DELETE FROM approvals");
+        $pdo->exec("DELETE FROM bookings");
+        $pdo->exec("DELETE FROM sqlite_sequence WHERE name IN ('bookings', 'approvals')");
+        $alertMsg = "ล้างข้อมูลคำขอทั้งหมดเรียบร้อยแล้ว ระบบอยู่ในสถานะเริ่มต้นพร้อมใช้งานจริงใหม่ (0 คำขอ)";
+        $alertType = 'success';
     }
 
     // 3. เพิ่มผู้ใช้ใหม่
