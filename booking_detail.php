@@ -45,14 +45,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action_type']
 
         $newBookingStatus = ($facility_status === 'approved') ? 'approved' : 'rejected';
 
+        $now = date('Y-m-d H:i:s');
         $pdo->prepare("
             UPDATE approvals SET 
                 facility_status = ?, facility_fuel = ?, facility_allowance = ?, 
                 facility_other = ?, facility_signer = ?, facility_comment = ?, 
                 office_driver_assigned = ?,
-                facility_signed_at = datetime('now') 
+                facility_signed_at = ? 
             WHERE booking_id = ?
-        ")->execute([$facility_status, $facility_fuel, $facility_allowance, $facility_other, $facility_signer, $facility_comment, $office_driver_assigned, $bookingId]);
+        ")->execute([$facility_status, $facility_fuel, $facility_allowance, $facility_other, $facility_signer, $facility_comment, $office_driver_assigned, $now, $bookingId]);
 
         $pdo->prepare("UPDATE bookings SET status = ? WHERE id = ?")->execute([$newBookingStatus, $bookingId]);
         header("Location: booking_detail.php?id=$bookingId&msg=saved");
@@ -106,7 +107,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action_type']
                 return_notes = ?,
                 returned_by = ?,
                 return_recorded_by = ?,
-                return_recorded_at = datetime('now', 'localtime')
+                return_recorded_at = ?
             WHERE id = ?
         ")->execute([
             $actual_end_datetime,
@@ -117,6 +118,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action_type']
             $return_notes,
             $returned_by,
             $return_recorded_by,
+            date('Y-m-d H:i:s'),
             $bookingId
         ]);
 

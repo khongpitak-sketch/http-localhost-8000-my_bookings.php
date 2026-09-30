@@ -41,8 +41,9 @@ if (empty($_SESSION['user']) && !empty($_COOKIE['pnu_remember'])) {
     $rememberToken = $_COOKIE['pnu_remember'];
     if (is_string($rememberToken) && strlen($rememberToken) >= 32) {
         try {
-            $stmt = $pdo->prepare("SELECT * FROM users WHERE remember_token = ? AND (remember_token_expiry IS NULL OR remember_token_expiry > datetime('now'))");
-            $stmt->execute([$rememberToken]);
+            $now = date('Y-m-d H:i:s');
+            $stmt = $pdo->prepare("SELECT * FROM users WHERE remember_token = ? AND (remember_token_expiry IS NULL OR remember_token_expiry > ?)");
+            $stmt->execute([$rememberToken, $now]);
             $autoUser = $stmt->fetch();
             if ($autoUser) {
                 $_SESSION['user'] = $autoUser;

@@ -90,8 +90,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     }
     else {
         // ตรวจสอบ Rate Limit ป้องกันการกดซ้ำซ้อนผิดปกติ (จำกัด 20 ครั้งใน 5 นาที)
-        $recentStmt = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE client_ip = ? AND created_at >= datetime('now', '-5 minutes')");
-        $recentStmt->execute([$clientIP]);
+        $fiveMinsAgo = date('Y-m-d H:i:s', time() - 300);
+        $recentStmt = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE client_ip = ? AND created_at >= ?");
+        $recentStmt->execute([$clientIP, $fiveMinsAgo]);
         if ((int)$recentStmt->fetchColumn() >= 20) {
             $error = 'ตรวจพบการส่งคำขอถี่เกินไป กรุณารอสักครู่ก่อนทำรายการใหม่';
         }
@@ -173,6 +174,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     $pdo->beginTransaction();
 
                     // บันทึกคำขอพร้อมข้อมูลความปลอดภัย (IP Address, User Agent)
+                    $todayDate = date('Y-m-d');
                     $insertBooking = $pdo->prepare("
                         INSERT INTO bookings (
                             doc_no, created_date, user_id, requester_name, requester_position, requester_department,
@@ -180,7 +182,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                             passenger_count, passenger_names, controller_name, status,
                             client_ip, user_agent, is_flagged_fake
                         ) VALUES (
-                            ?, date('now'), ?, ?, ?, ?,
+                            ?, ?, ?, ?, ?, ?,
                             ?, ?, ?, ?, ?, ?, ?, ?,
                             ?, ?, ?, 'pending_facility',
                             ?, ?, 0
@@ -188,6 +190,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     ");
                     $insertBooking->execute([
                         $docNo,
+                        $todayDate,
                         $validUserId,
                         $requester_name,
                         $requester_position,

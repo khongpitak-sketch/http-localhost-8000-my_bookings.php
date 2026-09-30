@@ -10,198 +10,344 @@ if (!defined('APP_VERSION')) {
 
 // ตรวจสอบสภาพแวดล้อม Vercel Serverless
 $isVercel = (getenv('VERCEL') || isset($_ENV['VERCEL']) || isset($_SERVER['VERCEL']));
-if ($isVercel) {
-    $dbDir = '/tmp/data';
-    if (!file_exists($dbDir)) {
-        @mkdir($dbDir, 0777, true);
+
+// ตรวจสอบการเชื่อมต่อ Cloud Database ภายนอก (Persistent Database for Vercel / Cloud)
+// รองรับ DATABASE_URL, MYSQL_URL, POSTGRES_URL หรือ MYSQL_HOST / DB_HOST
+$dbUrl = getenv('DATABASE_URL') ?: (getenv('MYSQL_URL') ?: (getenv('POSTGRES_URL') ?: ''));
+$dbHost = getenv('MYSQL_HOST') ?: (getenv('DB_HOST') ?: '');
+$dbDriver = 'sqlite';
+
+if (!empty($dbUrl)) {
+    $parsed = parse_url($dbUrl);
+    $scheme = strtolower($parsed['scheme'] ?? '');
+    if (in_array($scheme, ['mysql', 'mariadb'])) {
+        $dbDriver = 'mysql';
+    } elseif (in_array($scheme, ['postgres', 'postgresql'])) {
+        $dbDriver = 'pgsql';
     }
-    $dbPath = $dbDir . '/van_booking.sqlite';
-    $sourceDb = __DIR__ . '/../data/van_booking.sqlite';
-    if (!file_exists($dbPath) && file_exists($sourceDb)) {
-        @copy($sourceDb, $dbPath);
-    }
-} else {
-    $dbDir = __DIR__ . '/../data';
-    if (!file_exists($dbDir)) {
-        @mkdir($dbDir, 0777, true);
-    }
-    $dbPath = $dbDir . '/van_booking.sqlite';
+} elseif (!empty($dbHost)) {
+    $dbDriver = 'mysql';
 }
 
-try {
-    $pdo = new PDO("sqlite:" . $dbPath);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-    $pdo->exec("PRAGMA foreign_keys = ON;");
-    $pdo->exec("PRAGMA journal_mode = WAL;");
-    $pdo->exec("PRAGMA synchronous = NORMAL;");
-    $pdo->exec("PRAGMA cache_size = -64000;");
-    $pdo->exec("PRAGMA busy_timeout = 5000;");
-    $pdo->exec("PRAGMA temp_store = MEMORY;");
-} catch (PDOException $e) {
-    die("Database Connection Error: " . $e->getMessage());
+$pdo = null;
+
+if ($dbDriver === 'mysql') {
+    try {
+        if (!empty($dbUrl)) {
+            $p = parse_url($dbUrl);
+            $h = $p['host'] ?? 'localhost';
+            $port = $p['port'] ?? 3306;
+            $u = isset($p['user']) ? urldecode($p['user']) : '';
+            $pw = isset($p['pass']) ? urldecode($p['pass']) : '';
+            $db = ltrim($p['path'] ?? '', '/');
+        } else {
+            $h = $dbHost;
+            $port = getenv('MYSQL_PORT') ?: (getenv('DB_PORT') ?: 3306);
+            $u = getenv('MYSQL_USER') ?: (getenv('DB_USER') ?: 'root');
+            $pw = getenv('MYSQL_PASSWORD') ?: (getenv('DB_PASS') ?: '');
+            $db = getenv('MYSQL_DATABASE') ?: (getenv('DB_NAME') ?: 'van_booking');
+        }
+
+        $dsn = "mysql:host={$h};port={$port};dbname={$db};charset=utf8mb4";
+        $options = [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
+        ];
+        if (defined('PDO::MYSQL_ATTR_SSL_CA')) {
+            $options[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = false;
+        }
+        $pdo = new PDO($dsn, $u, $pw, $options);
+    } catch (PDOException $e) {
+        error_log("Remote MySQL Connection Failed, falling back to SQLite: " . $e->getMessage());
+        $dbDriver = 'sqlite';
+    }
+} elseif ($dbDriver === 'pgsql') {
+    try {
+        $p = parse_url($dbUrl);
+        $h = $p['host'] ?? 'localhost';
+        $port = $p['port'] ?? 5432;
+        $u = isset($p['user']) ? urldecode($p['user']) : '';
+        $pw = isset($p['pass']) ? urldecode($p['pass']) : '';
+        $db = ltrim($p['path'] ?? '', '/');
+
+        $dsn = "pgsql:host={$h};port={$port};dbname={$db}";
+        $pdo = new PDO($dsn, $u, $pw, [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        ]);
+    } catch (PDOException $e) {
+        error_log("Remote PostgreSQL Connection Failed, falling back to SQLite: " . $e->getMessage());
+        $dbDriver = 'sqlite';
+    }
 }
 
-// สร้างตารางหากยังไม่มี
-$pdo->exec("
-CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,
-    prefix TEXT,
-    fullname TEXT NOT NULL,
-    position TEXT NOT NULL,
-    department TEXT NOT NULL,
-    role TEXT NOT NULL, -- requester, facility_head, office_head, dean, driver, admin
-    phone TEXT,
-    signature_img TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS vehicles (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    plate_number TEXT UNIQUE NOT NULL,
-    brand_model TEXT NOT NULL,
-    vehicle_type TEXT NOT NULL, -- รถตู้, รถกระบะ, รถเก๋ง
-    seats INTEGER DEFAULT 14,
-    status TEXT DEFAULT 'active', -- active, maintenance, inactive
-    notes TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS bookings (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    doc_no TEXT UNIQUE,
-    created_date DATE NOT NULL,
-    user_id INTEGER,
-    requester_name TEXT NOT NULL,
-    requester_position TEXT NOT NULL,
-    requester_department TEXT NOT NULL,
-    vehicle_id INTEGER NOT NULL,
-    plate_number TEXT NOT NULL,
-    purpose TEXT NOT NULL,
-    route_from TEXT NOT NULL,
-    route_to TEXT NOT NULL,
-    start_datetime DATETIME NOT NULL,
-    end_datetime DATETIME NOT NULL,
-    passenger_count INTEGER DEFAULT 1,
-    passenger_names TEXT,
-    controller_name TEXT NOT NULL,
-    status TEXT DEFAULT 'pending_facility', 
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY(user_id) REFERENCES users(id),
-    FOREIGN KEY(vehicle_id) REFERENCES vehicles(id)
-);
-
-CREATE TABLE IF NOT EXISTS approvals (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    booking_id INTEGER UNIQUE NOT NULL,
-    -- 1. หัวหน้างานอาคารสถานที่
-    facility_status TEXT, -- approved, rejected
-    facility_fuel INTEGER DEFAULT 0, -- 1 = มีค่าน้ำมัน
-    facility_allowance INTEGER DEFAULT 0, -- 1 = มีเบี้ยเลี้ยง
-    facility_other TEXT,
-    facility_signer TEXT,
-    facility_comment TEXT,
-    facility_signed_at DATETIME,
-    
-    -- 2. หัวหน้าสำนักงานคณบดี
-    office_status TEXT, -- approved, rejected
-    office_driver_assigned TEXT,
-    office_reason TEXT,
-    office_other TEXT,
-    office_signer TEXT,
-    office_signed_at DATETIME,
-    
-    -- 3. คณบดีคณะวิทยาการจัดการ
-    dean_status TEXT, -- approved, rejected
-    dean_reason TEXT,
-    dean_other TEXT,
-    dean_signer TEXT,
-    dean_signed_at DATETIME,
-    
-    -- 4. พนักงานขับรถยนต์
-    driver_ack_status TEXT, -- acknowledged
-    driver_signer TEXT,
-    driver_acknowledged_at DATETIME,
-    
-    FOREIGN KEY(booking_id) REFERENCES bookings(id) ON DELETE CASCADE
-);
-");
-
-// อัปเกรดคอลัมน์ความปลอดภัยในตาราง bookings (หากยังไม่มี)
-try {
-    $existingCols = $pdo->query("PRAGMA table_info(bookings)")->fetchAll(PDO::FETCH_COLUMN, 1);
-    if (!in_array('client_ip', $existingCols)) {
-        $pdo->exec("ALTER TABLE bookings ADD COLUMN client_ip TEXT");
-    }
-    if (!in_array('user_agent', $existingCols)) {
-        $pdo->exec("ALTER TABLE bookings ADD COLUMN user_agent TEXT");
-    }
-    if (!in_array('is_flagged_fake', $existingCols)) {
-        $pdo->exec("ALTER TABLE bookings ADD COLUMN is_flagged_fake INTEGER DEFAULT 0");
-    }
-    if (!in_array('fake_reason', $existingCols)) {
-        $pdo->exec("ALTER TABLE bookings ADD COLUMN fake_reason TEXT");
+if ($dbDriver === 'sqlite') {
+    if ($isVercel) {
+        $dbDir = '/tmp/data';
+        if (!file_exists($dbDir)) {
+            @mkdir($dbDir, 0777, true);
+        }
+        $dbPath = $dbDir . '/van_booking.sqlite';
+        $sourceDb = __DIR__ . '/../data/van_booking.sqlite';
+        if (!file_exists($dbPath) && file_exists($sourceDb)) {
+            @copy($sourceDb, $dbPath);
+        }
+    } else {
+        $dbDir = __DIR__ . '/../data';
+        if (!file_exists($dbDir)) {
+            @mkdir($dbDir, 0777, true);
+        }
+        $dbPath = $dbDir . '/van_booking.sqlite';
     }
 
-    // อัปเกรดคอลัมน์สำหรับเก็บข้อมูลการสิ้นสุดการใช้รถ (Vehicle Return & Completion)
-    if (!in_array('actual_end_datetime', $existingCols)) {
-        $pdo->exec("ALTER TABLE bookings ADD COLUMN actual_end_datetime DATETIME");
+    try {
+        $pdo = new PDO("sqlite:" . $dbPath);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+        $pdo->exec("PRAGMA foreign_keys = ON;");
+        $pdo->exec("PRAGMA journal_mode = WAL;");
+        $pdo->exec("PRAGMA synchronous = NORMAL;");
+        $pdo->exec("PRAGMA cache_size = -64000;");
+        $pdo->exec("PRAGMA busy_timeout = 5000;");
+        $pdo->exec("PRAGMA temp_store = MEMORY;");
+    } catch (PDOException $e) {
+        die("Database Connection Error: " . $e->getMessage());
     }
-    if (!in_array('start_mileage', $existingCols)) {
-        $pdo->exec("ALTER TABLE bookings ADD COLUMN start_mileage INTEGER");
-    }
-    if (!in_array('end_mileage', $existingCols)) {
-        $pdo->exec("ALTER TABLE bookings ADD COLUMN end_mileage INTEGER");
-    }
-    if (!in_array('fuel_level', $existingCols)) {
-        $pdo->exec("ALTER TABLE bookings ADD COLUMN fuel_level TEXT");
-    }
-    if (!in_array('vehicle_condition', $existingCols)) {
-        $pdo->exec("ALTER TABLE bookings ADD COLUMN vehicle_condition TEXT");
-    }
-    if (!in_array('return_notes', $existingCols)) {
-        $pdo->exec("ALTER TABLE bookings ADD COLUMN return_notes TEXT");
-    }
-    if (!in_array('returned_by', $existingCols)) {
-        $pdo->exec("ALTER TABLE bookings ADD COLUMN returned_by TEXT");
-    }
-    if (!in_array('return_recorded_by', $existingCols)) {
-        $pdo->exec("ALTER TABLE bookings ADD COLUMN return_recorded_by TEXT");
-    }
-    if (!in_array('return_recorded_at', $existingCols)) {
-        $pdo->exec("ALTER TABLE bookings ADD COLUMN return_recorded_at DATETIME");
-    }
-    if (!in_array('requester_phone', $existingCols)) {
-        $pdo->exec("ALTER TABLE bookings ADD COLUMN requester_phone TEXT");
-    }
+}
 
-    // อัปเกรดคอลัมน์ในตาราง users สำหรับเก็บรหัสผ่านที่ Admin ตรวจสอบและแก้ไขได้
-    $existingUserCols = $pdo->query("PRAGMA table_info(users)")->fetchAll(PDO::FETCH_COLUMN, 1);
-    if (!in_array('plain_password', $existingUserCols)) {
-        $pdo->exec("ALTER TABLE users ADD COLUMN plain_password TEXT");
-    }
-    if (!in_array('remember_token', $existingUserCols)) {
-        $pdo->exec("ALTER TABLE users ADD COLUMN remember_token TEXT");
-    }
-    if (!in_array('remember_token_expiry', $existingUserCols)) {
-        $pdo->exec("ALTER TABLE users ADD COLUMN remember_token_expiry DATETIME");
-    }
-
-    // สร้าง Index เพื่อประสิทธิภาพสูงสุดในการค้นหาและประมวลผลข้อมูล
+// สร้างตารางสำหรับระบบฐานข้อมูลที่ใช้งาน
+if ($dbDriver === 'mysql') {
     $pdo->exec("
-        CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);
-        CREATE INDEX IF NOT EXISTS idx_bookings_user_id ON bookings(user_id);
-        CREATE INDEX IF NOT EXISTS idx_bookings_vehicle_id ON bookings(vehicle_id);
-        CREATE INDEX IF NOT EXISTS idx_bookings_start_dt ON bookings(start_datetime);
-        CREATE INDEX IF NOT EXISTS idx_bookings_end_dt ON bookings(end_datetime);
-        CREATE INDEX IF NOT EXISTS idx_bookings_doc_no ON bookings(doc_no);
-        CREATE INDEX IF NOT EXISTS idx_approvals_booking_id ON approvals(booking_id);
-        CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+    CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(191) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        plain_password VARCHAR(255),
+        prefix VARCHAR(50),
+        fullname VARCHAR(255) NOT NULL,
+        position VARCHAR(255) NOT NULL,
+        department VARCHAR(255) NOT NULL,
+        role VARCHAR(50) NOT NULL,
+        phone VARCHAR(50),
+        signature_img TEXT,
+        remember_token VARCHAR(255),
+        remember_token_expiry DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    CREATE TABLE IF NOT EXISTS vehicles (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        plate_number VARCHAR(100) UNIQUE NOT NULL,
+        brand_model VARCHAR(255) NOT NULL,
+        vehicle_type VARCHAR(100) NOT NULL,
+        seats INT DEFAULT 14,
+        status VARCHAR(50) DEFAULT 'active',
+        notes TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    CREATE TABLE IF NOT EXISTS bookings (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        doc_no VARCHAR(100) UNIQUE,
+        created_date DATE NOT NULL,
+        user_id INT,
+        requester_name VARCHAR(255) NOT NULL,
+        requester_position VARCHAR(255) NOT NULL,
+        requester_department VARCHAR(255) NOT NULL,
+        requester_phone VARCHAR(50),
+        vehicle_id INT NOT NULL,
+        plate_number VARCHAR(100) NOT NULL,
+        purpose TEXT NOT NULL,
+        route_from VARCHAR(255) NOT NULL,
+        route_to VARCHAR(255) NOT NULL,
+        start_datetime DATETIME NOT NULL,
+        end_datetime DATETIME NOT NULL,
+        passenger_count INT DEFAULT 1,
+        passenger_names TEXT,
+        controller_name VARCHAR(255) NOT NULL,
+        status VARCHAR(50) DEFAULT 'pending_facility',
+        client_ip VARCHAR(100),
+        user_agent TEXT,
+        is_flagged_fake INT DEFAULT 0,
+        fake_reason TEXT,
+        actual_end_datetime DATETIME,
+        start_mileage INT,
+        end_mileage INT,
+        fuel_level VARCHAR(50),
+        vehicle_condition TEXT,
+        return_notes TEXT,
+        returned_by VARCHAR(255),
+        return_recorded_by VARCHAR(255),
+        return_recorded_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_b_status (status),
+        INDEX idx_b_user_id (user_id),
+        INDEX idx_b_vehicle_id (vehicle_id),
+        INDEX idx_b_start_dt (start_datetime),
+        INDEX idx_b_end_dt (end_datetime),
+        INDEX idx_b_doc_no (doc_no)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+    CREATE TABLE IF NOT EXISTS approvals (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        booking_id INT UNIQUE NOT NULL,
+        facility_status VARCHAR(50),
+        facility_fuel INT DEFAULT 0,
+        facility_allowance INT DEFAULT 0,
+        facility_other TEXT,
+        facility_signer VARCHAR(255),
+        facility_comment TEXT,
+        facility_signed_at DATETIME,
+        office_status VARCHAR(50),
+        office_driver_assigned VARCHAR(255),
+        office_reason TEXT,
+        office_other TEXT,
+        office_signer VARCHAR(255),
+        office_signed_at DATETIME,
+        dean_status VARCHAR(50),
+        dean_reason TEXT,
+        dean_other TEXT,
+        dean_signer VARCHAR(255),
+        dean_signed_at DATETIME,
+        driver_ack_status VARCHAR(50),
+        driver_signer VARCHAR(255),
+        driver_acknowledged_at DATETIME,
+        INDEX idx_appr_booking (booking_id),
+        FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     ");
-} catch (Exception $e) {
-    // ข้ามกรณีมีคอลัมน์หรือ Index อยู่แล้ว
+} else {
+    // ตาราง SQLite
+    $pdo->exec("
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        plain_password TEXT,
+        prefix TEXT,
+        fullname TEXT NOT NULL,
+        position TEXT NOT NULL,
+        department TEXT NOT NULL,
+        role TEXT NOT NULL,
+        phone TEXT,
+        signature_img TEXT,
+        remember_token TEXT,
+        remember_token_expiry DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS vehicles (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        plate_number TEXT UNIQUE NOT NULL,
+        brand_model TEXT NOT NULL,
+        vehicle_type TEXT NOT NULL,
+        seats INTEGER DEFAULT 14,
+        status TEXT DEFAULT 'active',
+        notes TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS bookings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        doc_no TEXT UNIQUE,
+        created_date DATE NOT NULL,
+        user_id INTEGER,
+        requester_name TEXT NOT NULL,
+        requester_position TEXT NOT NULL,
+        requester_department TEXT NOT NULL,
+        requester_phone TEXT,
+        vehicle_id INTEGER NOT NULL,
+        plate_number TEXT NOT NULL,
+        purpose TEXT NOT NULL,
+        route_from TEXT NOT NULL,
+        route_to TEXT NOT NULL,
+        start_datetime DATETIME NOT NULL,
+        end_datetime DATETIME NOT NULL,
+        passenger_count INTEGER DEFAULT 1,
+        passenger_names TEXT,
+        controller_name TEXT NOT NULL,
+        status TEXT DEFAULT 'pending_facility',
+        client_ip TEXT,
+        user_agent TEXT,
+        is_flagged_fake INTEGER DEFAULT 0,
+        fake_reason TEXT,
+        actual_end_datetime DATETIME,
+        start_mileage INTEGER,
+        end_mileage INTEGER,
+        fuel_level TEXT,
+        vehicle_condition TEXT,
+        return_notes TEXT,
+        returned_by TEXT,
+        return_recorded_by TEXT,
+        return_recorded_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(user_id) REFERENCES users(id),
+        FOREIGN KEY(vehicle_id) REFERENCES vehicles(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS approvals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        booking_id INTEGER UNIQUE NOT NULL,
+        facility_status TEXT,
+        facility_fuel INTEGER DEFAULT 0,
+        facility_allowance INTEGER DEFAULT 0,
+        facility_other TEXT,
+        facility_signer TEXT,
+        facility_comment TEXT,
+        facility_signed_at DATETIME,
+        office_status TEXT,
+        office_driver_assigned TEXT,
+        office_reason TEXT,
+        office_other TEXT,
+        office_signer TEXT,
+        office_signed_at DATETIME,
+        dean_status TEXT,
+        dean_reason TEXT,
+        dean_other TEXT,
+        dean_signer TEXT,
+        dean_signed_at DATETIME,
+        driver_ack_status TEXT,
+        driver_signer TEXT,
+        driver_acknowledged_at DATETIME,
+        FOREIGN KEY(booking_id) REFERENCES bookings(id) ON DELETE CASCADE
+    );
+    ");
+
+    // อัปเกรดคอลัมน์ใน SQLite หากยังไม่มี
+    try {
+        $existingCols = $pdo->query("PRAGMA table_info(bookings)")->fetchAll(PDO::FETCH_COLUMN, 1);
+        if (!in_array('client_ip', $existingCols)) $pdo->exec("ALTER TABLE bookings ADD COLUMN client_ip TEXT");
+        if (!in_array('user_agent', $existingCols)) $pdo->exec("ALTER TABLE bookings ADD COLUMN user_agent TEXT");
+        if (!in_array('is_flagged_fake', $existingCols)) $pdo->exec("ALTER TABLE bookings ADD COLUMN is_flagged_fake INTEGER DEFAULT 0");
+        if (!in_array('fake_reason', $existingCols)) $pdo->exec("ALTER TABLE bookings ADD COLUMN fake_reason TEXT");
+        if (!in_array('actual_end_datetime', $existingCols)) $pdo->exec("ALTER TABLE bookings ADD COLUMN actual_end_datetime DATETIME");
+        if (!in_array('start_mileage', $existingCols)) $pdo->exec("ALTER TABLE bookings ADD COLUMN start_mileage INTEGER");
+        if (!in_array('end_mileage', $existingCols)) $pdo->exec("ALTER TABLE bookings ADD COLUMN end_mileage INTEGER");
+        if (!in_array('fuel_level', $existingCols)) $pdo->exec("ALTER TABLE bookings ADD COLUMN fuel_level TEXT");
+        if (!in_array('vehicle_condition', $existingCols)) $pdo->exec("ALTER TABLE bookings ADD COLUMN vehicle_condition TEXT");
+        if (!in_array('return_notes', $existingCols)) $pdo->exec("ALTER TABLE bookings ADD COLUMN return_notes TEXT");
+        if (!in_array('returned_by', $existingCols)) $pdo->exec("ALTER TABLE bookings ADD COLUMN returned_by TEXT");
+        if (!in_array('return_recorded_by', $existingCols)) $pdo->exec("ALTER TABLE bookings ADD COLUMN return_recorded_by TEXT");
+        if (!in_array('return_recorded_at', $existingCols)) $pdo->exec("ALTER TABLE bookings ADD COLUMN return_recorded_at DATETIME");
+        if (!in_array('requester_phone', $existingCols)) $pdo->exec("ALTER TABLE bookings ADD COLUMN requester_phone TEXT");
+
+        $existingUserCols = $pdo->query("PRAGMA table_info(users)")->fetchAll(PDO::FETCH_COLUMN, 1);
+        if (!in_array('plain_password', $existingUserCols)) $pdo->exec("ALTER TABLE users ADD COLUMN plain_password TEXT");
+        if (!in_array('remember_token', $existingUserCols)) $pdo->exec("ALTER TABLE users ADD COLUMN remember_token TEXT");
+        if (!in_array('remember_token_expiry', $existingUserCols)) $pdo->exec("ALTER TABLE users ADD COLUMN remember_token_expiry DATETIME");
+
+        $pdo->exec("
+            CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);
+            CREATE INDEX IF NOT EXISTS idx_bookings_user_id ON bookings(user_id);
+            CREATE INDEX IF NOT EXISTS idx_bookings_vehicle_id ON bookings(vehicle_id);
+            CREATE INDEX IF NOT EXISTS idx_bookings_start_dt ON bookings(start_datetime);
+            CREATE INDEX IF NOT EXISTS idx_bookings_end_dt ON bookings(end_datetime);
+            CREATE INDEX IF NOT EXISTS idx_bookings_doc_no ON bookings(doc_no);
+            CREATE INDEX IF NOT EXISTS idx_approvals_booking_id ON approvals(booking_id);
+            CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+        ");
+    } catch (Exception $e) {}
 }
 
 // ฟังก์ชันดึง Client IP Address จริง

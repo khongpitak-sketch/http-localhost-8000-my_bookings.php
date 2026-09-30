@@ -22,6 +22,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
         // หากตั้งเป็น approved หรือ completed ให้อัปเดตสถานะใน approvals ด้วย
         if ($newStatus === 'approved' || $newStatus === 'completed') {
+            $now = date('Y-m-d H:i:s');
             $pdo->prepare("
                 UPDATE approvals SET 
                     facility_status = COALESCE(facility_status, 'approved'),
@@ -29,19 +30,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     facility_fuel = COALESCE(facility_fuel, 1),
                     facility_allowance = COALESCE(facility_allowance, 1),
                     office_driver_assigned = COALESCE(office_driver_assigned, 'นายธเนศ อินเอิบ'),
-                    facility_signed_at = COALESCE(facility_signed_at, datetime('now'))
+                    facility_signed_at = COALESCE(facility_signed_at, ?)
                 WHERE booking_id = ?
-            ")->execute([$bookingId]);
+            ")->execute([$now, $bookingId]);
 
             if ($newStatus === 'completed') {
                 $pdo->prepare("
                     UPDATE bookings SET 
-                        actual_end_datetime = COALESCE(actual_end_datetime, end_datetime, datetime('now', 'localtime')),
+                        actual_end_datetime = COALESCE(actual_end_datetime, end_datetime, ?),
                         vehicle_condition = COALESCE(vehicle_condition, 'ปกติเรียบร้อยดี'),
                         return_recorded_by = COALESCE(return_recorded_by, 'ผู้ดูแลระบบ (Admin)'),
-                        return_recorded_at = COALESCE(return_recorded_at, datetime('now', 'localtime'))
+                        return_recorded_at = COALESCE(return_recorded_at, ?)
                     WHERE id = ?
-                ")->execute([$bookingId]);
+                ")->execute([$now, $now, $bookingId]);
             }
         }
 
@@ -219,6 +220,27 @@ require_once __DIR__ . '/includes/header.php';
 <div class="alert alert-<?= $alertType ?> alert-dismissible fade show" role="alert">
     <i class="fas fa-info-circle me-2"></i> <?= htmlspecialchars($alertMsg) ?>
     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+<?php endif; ?>
+
+<?php if ($isVercel && $dbDriver === 'sqlite'): ?>
+<div class="alert alert-warning border-warning shadow-sm mb-4" role="alert">
+    <div class="d-flex align-items-start">
+        <i class="fas fa-database text-warning fs-3 me-3 mt-1"></i>
+        <div>
+            <h6 class="alert-heading fw-bold mb-1"><i class="fas fa-cloud me-1"></i> คำแนะนำสำคัญ: ระบบตรวจพบการรันบน Vercel Serverless</h6>
+            <div class="small text-secondary mb-2">
+                เนื่องจาก Vercel เป็น Serverless (ไม่มีฮาร์ดดิสก์ถาวร) ไฟล์ SQLite ใน <code>/tmp</code> จะแยกกล่องกันในแต่ละ Session ทำให้เมื่อ Admin ล็อกอินเข้ามาคนละเครื่อง ข้อมูลการจองรถจะไม่เชื่อมกัน
+            </div>
+            <div class="small">
+                <strong>วิธีเลือกใช้งานให้ข้อมูลคงอยู่ถาวร 100%:</strong>
+                <ol class="mb-0 ps-3 mt-1">
+                    <li><strong>เปิดใช้งานจริงผ่านระบบมหาวิทยาลัย (แนะนำและง่ายที่สุด):</strong> ดับเบิ้ลคลิกไฟล์ <code>start_system.bat</code> บนเครื่องคอมพิวเตอร์ของคณะ ข้อมูล SQLite จะถูกเก็บถาวร 100% ข้อมูลไม่มีวันหาย และเปิดให้ทุกคนในคณะเข้าใช้งานผ่าน IP เครือข่ายได้ทันที</li>
+                    <li><strong>หากต้องการออนไลน์ผ่าน Vercel ข้ามอินเทอร์เน็ต:</strong> นำ Connection String จาก Cloud Database ฟรี (เช่น <strong>TiDB Cloud MySQL ฟรี</strong> หรือ <strong>Supabase Postgres ฟรี</strong>) ไปใส่ใน Vercel Environment Variables ช่อง <code>DATABASE_URL</code> ระบบจะเชื่อมต่อและบันทึกข้อมูลถาวรข้ามอุปกรณ์ให้ทันที</li>
+                </ol>
+            </div>
+        </div>
+    </div>
 </div>
 <?php endif; ?>
 
