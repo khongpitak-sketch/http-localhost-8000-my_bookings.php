@@ -54,7 +54,19 @@ if ($dbDriver === 'mysql') {
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false,
         ];
-        if (defined('PDO::MYSQL_ATTR_SSL_CA')) {
+        // ตรวจสอบ CA Bundle อัตโนมัติสำหรับ Managed Cloud Database เช่น TiDB Cloud / Aiven
+        $caPaths = [
+            '/etc/pki/tls/certs/ca-bundle.crt',
+            '/etc/ssl/certs/ca-certificates.crt',
+            '/etc/ssl/cert.pem'
+        ];
+        foreach ($caPaths as $ca) {
+            if (file_exists($ca)) {
+                $options[PDO::MYSQL_ATTR_SSL_CA] = $ca;
+                break;
+            }
+        }
+        if (defined('PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT')) {
             $options[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = false;
         }
         $pdo = new PDO($dsn, $u, $pw, $options);
@@ -71,7 +83,19 @@ if ($dbDriver === 'mysql') {
         $pw = isset($p['pass']) ? urldecode($p['pass']) : '';
         $db = ltrim($p['path'] ?? '', '/');
 
-        $dsn = "pgsql:host={$h};port={$port};dbname={$db}";
+        $sslmode = 'prefer';
+        if (isset($p['query'])) {
+            parse_str($p['query'], $qParams);
+            if (!empty($qParams['sslmode'])) {
+                $sslmode = $qParams['sslmode'];
+            }
+        }
+        // Managed Cloud PostgreSQL บังคับใช้ SSL
+        if (strpos($h, 'supabase.co') !== false || strpos($h, 'neon.tech') !== false || strpos($h, 'pooler.supabase.com') !== false || strpos($h, 'aivencloud.com') !== false) {
+            $sslmode = 'require';
+        }
+
+        $dsn = "pgsql:host={$h};port={$port};dbname={$db};sslmode={$sslmode}";
         $pdo = new PDO($dsn, $u, $pw, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -216,6 +240,111 @@ if ($dbDriver === 'mysql') {
         INDEX idx_appr_booking (booking_id),
         FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ");
+} elseif ($dbDriver === 'pgsql') {
+    // ตาราง PostgreSQL (เช่น Supabase / Neon)
+    $pdo->exec("
+    CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(191) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        plain_password VARCHAR(255),
+        prefix VARCHAR(50),
+        fullname VARCHAR(255) NOT NULL,
+        position VARCHAR(255) NOT NULL,
+        department VARCHAR(255) NOT NULL,
+        role VARCHAR(50) NOT NULL,
+        phone VARCHAR(50),
+        signature_img TEXT,
+        remember_token VARCHAR(255),
+        remember_token_expiry TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS vehicles (
+        id SERIAL PRIMARY KEY,
+        plate_number VARCHAR(100) UNIQUE NOT NULL,
+        brand_model VARCHAR(255) NOT NULL,
+        vehicle_type VARCHAR(100) NOT NULL,
+        seats INT DEFAULT 14,
+        status VARCHAR(50) DEFAULT 'active',
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS bookings (
+        id SERIAL PRIMARY KEY,
+        doc_no VARCHAR(100) UNIQUE,
+        created_date DATE NOT NULL,
+        user_id INT,
+        requester_name VARCHAR(255) NOT NULL,
+        requester_position VARCHAR(255) NOT NULL,
+        requester_department VARCHAR(255) NOT NULL,
+        requester_phone VARCHAR(50),
+        vehicle_id INT NOT NULL,
+        plate_number VARCHAR(100) NOT NULL,
+        purpose TEXT NOT NULL,
+        route_from VARCHAR(255) NOT NULL,
+        route_to VARCHAR(255) NOT NULL,
+        start_datetime TIMESTAMP NOT NULL,
+        end_datetime TIMESTAMP NOT NULL,
+        passenger_count INT DEFAULT 1,
+        passenger_names TEXT,
+        controller_name VARCHAR(255) NOT NULL,
+        status VARCHAR(50) DEFAULT 'pending_facility',
+        client_ip VARCHAR(100),
+        user_agent TEXT,
+        is_flagged_fake INT DEFAULT 0,
+        fake_reason TEXT,
+        actual_end_datetime TIMESTAMP,
+        start_mileage INT,
+        end_mileage INT,
+        fuel_level VARCHAR(50),
+        vehicle_condition TEXT,
+        return_notes TEXT,
+        returned_by VARCHAR(255),
+        return_recorded_by VARCHAR(255),
+        return_recorded_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+        FOREIGN KEY (vehicle_id) REFERENCES vehicles(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS approvals (
+        id SERIAL PRIMARY KEY,
+        booking_id INT UNIQUE NOT NULL,
+        facility_status VARCHAR(50),
+        facility_fuel INT DEFAULT 0,
+        facility_allowance INT DEFAULT 0,
+        facility_other TEXT,
+        facility_signer VARCHAR(255),
+        facility_comment TEXT,
+        facility_signed_at TIMESTAMP,
+        office_status VARCHAR(50),
+        office_driver_assigned VARCHAR(255),
+        office_reason TEXT,
+        office_other TEXT,
+        office_signer VARCHAR(255),
+        office_signed_at TIMESTAMP,
+        dean_status VARCHAR(50),
+        dean_reason TEXT,
+        dean_other TEXT,
+        dean_signer VARCHAR(255),
+        dean_signed_at TIMESTAMP,
+        driver_ack_status VARCHAR(50),
+        driver_signer VARCHAR(255),
+        driver_acknowledged_at TIMESTAMP,
+        FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_b_status ON bookings(status);
+    CREATE INDEX IF NOT EXISTS idx_b_user_id ON bookings(user_id);
+    CREATE INDEX IF NOT EXISTS idx_b_vehicle_id ON bookings(vehicle_id);
+    CREATE INDEX IF NOT EXISTS idx_b_start_dt ON bookings(start_datetime);
+    CREATE INDEX IF NOT EXISTS idx_b_end_dt ON bookings(end_datetime);
+    CREATE INDEX IF NOT EXISTS idx_b_doc_no ON bookings(doc_no);
+    CREATE INDEX IF NOT EXISTS idx_appr_booking ON approvals(booking_id);
+    CREATE INDEX IF NOT EXISTS idx_u_username ON users(username);
     ");
 } else {
     // ตาราง SQLite
