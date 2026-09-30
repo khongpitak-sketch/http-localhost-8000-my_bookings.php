@@ -2,8 +2,9 @@
 // includes/auth.php - จัดการ Session และการเข้าสู่ระบบแบบถาวร (ป้องกันระบบเด้งออก)
 
 if (session_status() === PHP_SESSION_NONE) {
-    // 1. กำหนดโฟลเดอร์สำหรับเก็บ Session ใน data/sessions ของระบบ เพื่อไม่ให้ปนกับโปรแกรมอื่นในเครื่อง
-    $sessionSavePath = __DIR__ . '/../data/sessions';
+    // 1. กำหนดโฟลเดอร์สำหรับเก็บ Session ใน data/sessions (หรือ /tmp/sessions บน Vercel)
+    $isVercel = (getenv('VERCEL') || isset($_ENV['VERCEL']) || isset($_SERVER['VERCEL']));
+    $sessionSavePath = $isVercel ? '/tmp/sessions' : (__DIR__ . '/../data/sessions');
     if (!file_exists($sessionSavePath)) {
         @mkdir($sessionSavePath, 0777, true);
     }

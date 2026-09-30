@@ -5,8 +5,9 @@ require_once __DIR__ . '/includes/auth.php';
 
 requireAdmin();
 
-$alertMsg = '';
-$alertType = 'info';
+$alertMsg = $_SESSION['admin_alert_msg'] ?? '';
+$alertType = $_SESSION['admin_alert_type'] ?? 'info';
+unset($_SESSION['admin_alert_msg'], $_SESSION['admin_alert_type']);
 
 // ประมวลผลคำสั่งของ Admin
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
@@ -62,15 +63,6 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $pdo->prepare("DELETE FROM approvals WHERE booking_id = ?")->execute([$bookingId]);
         $pdo->prepare("DELETE FROM bookings WHERE id = ?")->execute([$bookingId]);
         $alertMsg = "ลบคำขอ #$bookingId เรียบร้อยแล้ว";
-        $alertType = 'success';
-    }
-
-    // 2.1 ล้างคำขอทั้งหมดเพื่อเริ่มต้นใช้งานจริงใหม่ (Reset all bookings for fresh start)
-    if ($action === 'clear_all_bookings') {
-        $pdo->exec("DELETE FROM approvals");
-        $pdo->exec("DELETE FROM bookings");
-        $pdo->exec("DELETE FROM sqlite_sequence WHERE name IN ('bookings', 'approvals')");
-        $alertMsg = "ล้างข้อมูลคำขอทั้งหมดเรียบร้อยแล้ว ระบบอยู่ในสถานะเริ่มต้นพร้อมใช้งานจริงใหม่ (0 คำขอ)";
         $alertType = 'success';
     }
 
@@ -153,6 +145,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $alertMsg = "รีเซ็ตรหัสผ่านของผู้ใช้เป็น '$newPass' เรียบร้อยแล้ว";
         $alertType = 'success';
     }
+
+    $_SESSION['admin_alert_msg'] = $alertMsg;
+    $_SESSION['admin_alert_type'] = $alertType;
+    header("Location: admin.php");
+    exit;
 }
 
 // สถิติสำหรับ Admin

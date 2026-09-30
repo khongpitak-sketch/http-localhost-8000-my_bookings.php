@@ -134,13 +134,25 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             if ($isConflict > 0) {
                 $error = 'รถยนต์หมายเลขทะเบียนที่เลือก มีการจองใช้งานในช่วงวันและเวลาดังกล่าวแล้ว กรุณาเลือกรถคันอื่นหรือเปลี่ยนช่วงเวลา';
             } else {
-                // ดึงข้อมูลรถ
-                $vehStmt = $pdo->prepare("SELECT plate_number FROM vehicles WHERE id = ?");
+                // ตรวจสอบข้อมูลรถยนต์และหมายเลขทะเบียนที่ถูกต้อง (ป้องกัน Foreign Key ผิดพลาด)
+                $vehStmt = $pdo->prepare("SELECT id, plate_number FROM vehicles WHERE id = ?");
                 $vehStmt->execute([$vehicle_id]);
                 $veh = $vehStmt->fetch();
-                $plate_number = $veh['plate_number'] ?? '';
+                if (!$veh) {
+                    $veh = $pdo->query("SELECT id, plate_number FROM vehicles WHERE status = 'active' LIMIT 1")->fetch();
+                }
+                $validVehicleId = (int)($veh['id'] ?? 1);
+                $plate_number = $veh['plate_number'] ?? 'นข.1332 นธ.';
 
-                // รันเลขที่เอกสาร เช่น ควจ. 005/2569 โดยค้นหาเลขสูงสุดของปี พ.ศ. ปัจจุบัน ป้องกันเลขซ้ำ
+                // ตรวจสอบ User ID ให้ตรงกับฐานข้อมูลจริง (ป้องกัน Foreign Key ผิดพลาด)
+                $validUserId = null;
+                if (!empty($currentUser['id'])) {
+                    $uCheck = $pdo->prepare("SELECT id FROM users WHERE id = ?");
+                    $uCheck->execute([$currentUser['id']]);
+                    $validUserId = $uCheck->fetchColumn() ?: null;
+                }
+
+                // รันเลขที่เอกสาร เช่น ควจ. 001/2569 โดยค้นหาเลขสูงสุดของปี พ.ศ. ปัจจุบัน ป้องกันเลขซ้ำ
                 $currentYearThai = date('Y') + 543;
                 $stmtDocs = $pdo->prepare("SELECT doc_no FROM bookings WHERE doc_no LIKE ?");
                 $stmtDocs->execute(["%/{$currentYearThai}"]);
@@ -157,47 +169,58 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 $nextDocNum = $maxDocNum + 1;
                 $docNo = sprintf("ควจ. %03d/%d", $nextDocNum, $currentYearThai);
 
-                // บันทึกคำขอพร้อมข้อมูลความปลอดภัย (IP Address, User Agent)
-                $insertBooking = $pdo->prepare("
-                    INSERT INTO bookings (
-                        doc_no, created_date, user_id, requester_name, requester_position, requester_department,
-                        requester_phone, vehicle_id, plate_number, purpose, route_from, route_to, start_datetime, end_datetime,
-                        passenger_count, passenger_names, controller_name, status,
-                        client_ip, user_agent, is_flagged_fake
-                    ) VALUES (
-                        ?, date('now'), ?, ?, ?, ?,
-                        ?, ?, ?, ?, ?, ?, ?, ?,
-                        ?, ?, ?, 'pending_facility',
-                        ?, ?, 0
-                    )
-                ");
-                $insertBooking->execute([
-                    $docNo,
-                    $currentUser['id'] ?? null,
-                    $requester_name,
-                    $requester_position,
-                    $requester_department,
-                    $requester_phone,
-                    $vehicle_id,
-                    $plate_number,
-                    $purpose,
-                    $route_from,
-                    $route_to,
-                    $start_datetime,
-                    $end_datetime,
-                    $passenger_count,
-                    $passenger_names,
-                    $controller_name,
-                    $clientIP,
-                    $userAgent
-                ]);
-                $newBookingId = $pdo->lastInsertId();
+                try {
+                    $pdo->beginTransaction();
 
-                // สร้างแถวในตาราง approvals
-                $pdo->prepare("INSERT INTO approvals (booking_id) VALUES (?)")->execute([$newBookingId]);
+                    // บันทึกคำขอพร้อมข้อมูลความปลอดภัย (IP Address, User Agent)
+                    $insertBooking = $pdo->prepare("
+                        INSERT INTO bookings (
+                            doc_no, created_date, user_id, requester_name, requester_position, requester_department,
+                            requester_phone, vehicle_id, plate_number, purpose, route_from, route_to, start_datetime, end_datetime,
+                            passenger_count, passenger_names, controller_name, status,
+                            client_ip, user_agent, is_flagged_fake
+                        ) VALUES (
+                            ?, date('now'), ?, ?, ?, ?,
+                            ?, ?, ?, ?, ?, ?, ?, ?,
+                            ?, ?, ?, 'pending_facility',
+                            ?, ?, 0
+                        )
+                    ");
+                    $insertBooking->execute([
+                        $docNo,
+                        $validUserId,
+                        $requester_name,
+                        $requester_position,
+                        $requester_department,
+                        $requester_phone,
+                        $validVehicleId,
+                        $plate_number,
+                        $purpose,
+                        $route_from,
+                        $route_to,
+                        $start_datetime,
+                        $end_datetime,
+                        $passenger_count,
+                        $passenger_names,
+                        $controller_name,
+                        $clientIP,
+                        $userAgent
+                    ]);
+                    $newBookingId = $pdo->lastInsertId();
 
-                header("Location: booking_detail.php?id=$newBookingId&success=1");
-                exit;
+                    // สร้างแถวในตาราง approvals
+                    $pdo->prepare("INSERT INTO approvals (booking_id) VALUES (?)")->execute([$newBookingId]);
+
+                    $pdo->commit();
+
+                    header("Location: booking_detail.php?id=$newBookingId&success=1");
+                    exit;
+                } catch (Exception $e) {
+                    if ($pdo->inTransaction()) {
+                        $pdo->rollBack();
+                    }
+                    $error = 'เกิดข้อผิดพลาดในการบันทึกคำขอ: ' . $e->getMessage();
+                }
             }
         }
     }
