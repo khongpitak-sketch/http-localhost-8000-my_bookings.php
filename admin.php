@@ -9,6 +9,20 @@ $alertMsg = $_SESSION['admin_alert_msg'] ?? '';
 $alertType = $_SESSION['admin_alert_type'] ?? 'info';
 unset($_SESSION['admin_alert_msg'], $_SESSION['admin_alert_type']);
 
+// ส่งออก/ดาวน์โหลดฐานข้อมูล SQLite สำหรับสำรองข้อมูล
+if (($_GET['action'] ?? '') === 'download_sqlite') {
+    if ($dbDriver === 'sqlite' && !empty($dbPath) && file_exists($dbPath)) {
+        header('Content-Type: application/x-sqlite3');
+        header('Content-Disposition: attachment; filename="van_booking_' . date('Y-m-d_His') . '.sqlite"');
+        header('Content-Length: ' . filesize($dbPath));
+        readfile($dbPath);
+        exit;
+    } else {
+        $alertMsg = "ขณะนี้ระบบเชื่อมต่อฐานข้อมูลภายนอก (Cloud Database) ข้อมูลจึงถูกบันทึกบน Cloud โดยตรง";
+        $alertType = 'info';
+    }
+}
+
 // ประมวลผลคำสั่งของ Admin
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     $action = $_POST['action'] ?? '';
@@ -207,6 +221,9 @@ require_once __DIR__ . '/includes/header.php';
         </span>
     </div>
     <div class="d-flex gap-2">
+        <a href="admin.php?action=download_sqlite" class="btn btn-outline-success btn-sm" title="ดาวน์โหลดไฟล์ฐานข้อมูล SQLite สำรอง">
+            <i class="fas fa-database me-1"></i> ดาวน์โหลด SQLite
+        </a>
         <a href="print_form.php<?= !empty($allBookings) ? '?id=' . $allBookings[0]['id'] : '' ?>" target="_blank" class="btn btn-outline-secondary btn-sm">
             <i class="fas fa-file-invoice me-1"></i> ตัวอย่างเอกสาร A4
         </a>
