@@ -255,8 +255,9 @@ require_once __DIR__ . '/includes/header.php';
                 <i class="fas fa-triangle-exclamation me-1"></i> <strong>ข้อผิดพลาดการเชื่อมต่อ Cloud DB:</strong> <?= htmlspecialchars($dbConnError) ?>
             </div>
             <?php elseif (!empty($dbUrl)): ?>
+            <?php $pInfo = function_exists('parseDatabaseUrl') ? parseDatabaseUrl($dbUrl) : parse_url($dbUrl); ?>
             <div class="alert alert-info p-2 small mb-2">
-                <i class="fas fa-info-circle me-1"></i> ตรวจพบค่า DATABASE_URL (ชนิด: <?= htmlspecialchars(parse_url($dbUrl, PHP_URL_SCHEME) ?? '') ?>) กำลังตรวจสอบการเชื่อมต่อ
+                <i class="fas fa-info-circle me-1"></i> ตรวจพบค่า DATABASE_URL (ชนิด: <?= htmlspecialchars($pInfo['scheme'] ?? 'ไม่ระบุ') ?>, โฮสต์: <?= htmlspecialchars($pInfo['host'] ?? 'ไม่ระบุ') ?>)
             </div>
             <?php else: ?>
             <div class="alert alert-secondary p-2 small mb-2">

@@ -25,8 +25,43 @@ $dbHost = trim($_ENV['MYSQL_HOST'] ?? ($_SERVER['MYSQL_HOST'] ?? (getenv('MYSQL_
 $dbDriver = 'sqlite';
 $dbConnError = '';
 
+if (!function_exists('parseDatabaseUrl')) {
+    function parseDatabaseUrl($url) {
+        $url = trim($url, " \t\n\r\0\x0B\"'");
+        if (strpos($url, '#') !== false || substr_count($url, '@') > 1) {
+            if (preg_match('/^([a-zA-Z0-9_\-]+):\/\/([^:]+):(.*)@([^:\/?#]+)(?::(\d+))?\/([^?#]+)(?:\?(.*))?$/', $url, $m)) {
+                return [
+                    'scheme' => $m[1],
+                    'user' => $m[2],
+                    'pass' => $m[3],
+                    'host' => $m[4],
+                    'port' => !empty($m[5]) ? (int)$m[5] : null,
+                    'path' => '/' . $m[6],
+                    'query' => $m[7] ?? null
+                ];
+            }
+        }
+        $p = parse_url($url);
+        if ($p !== false && !empty($p['scheme']) && !empty($p['host']) && empty($p['fragment'])) {
+            return $p;
+        }
+        if (preg_match('/^([a-zA-Z0-9_\-]+):\/\/([^:]+):(.*)@([^:\/?#]+)(?::(\d+))?\/([^?#]+)(?:\?(.*))?$/', $url, $m)) {
+            return [
+                'scheme' => $m[1],
+                'user' => $m[2],
+                'pass' => $m[3],
+                'host' => $m[4],
+                'port' => !empty($m[5]) ? (int)$m[5] : null,
+                'path' => '/' . $m[6],
+                'query' => $m[7] ?? null
+            ];
+        }
+        return false;
+    }
+}
+
 if (!empty($dbUrl)) {
-    $parsed = parse_url($dbUrl);
+    $parsed = parseDatabaseUrl($dbUrl);
     $scheme = strtolower($parsed['scheme'] ?? '');
     if (in_array($scheme, ['mysql', 'mariadb'])) {
         $dbDriver = 'mysql';
@@ -42,7 +77,7 @@ $pdo = null;
 if ($dbDriver === 'mysql') {
     try {
         if (!empty($dbUrl)) {
-            $p = parse_url($dbUrl);
+            $p = parseDatabaseUrl($dbUrl);
             $h = $p['host'] ?? 'localhost';
             $port = $p['port'] ?? 3306;
             $u = isset($p['user']) ? urldecode($p['user']) : '';
@@ -85,7 +120,7 @@ if ($dbDriver === 'mysql') {
     }
 } elseif ($dbDriver === 'pgsql') {
     try {
-        $p = parse_url($dbUrl);
+        $p = parseDatabaseUrl($dbUrl);
         $h = $p['host'] ?? 'localhost';
         $port = $p['port'] ?? 5432;
         $u = isset($p['user']) ? urldecode($p['user']) : '';
