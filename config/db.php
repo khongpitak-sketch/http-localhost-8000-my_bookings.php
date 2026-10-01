@@ -154,7 +154,8 @@ if ($dbDriver === 'mysql') {
             $pdo = new PDO($dsn, $u, $pw, [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_TIMEOUT => 5
+                PDO::ATTR_TIMEOUT => 5,
+                PDO::ATTR_EMULATE_PREPARES => true
             ]);
             $connected = true;
             break;
@@ -617,27 +618,36 @@ $facultyUserList = [
     ['Aeksit', '30052525', 'นาย', 'เอกสิทธิ์ คงพิทักษ์', 'หัวหน้างานอาคารสถานที่ / ผู้ดูแลระบบ', 'งานอาคารสถานที่และยานพาหนะ', 'admin', '081-999-8881']
 ];
 
-// ซิงค์หรือสร้างผู้ใช้งานในระบบ
-foreach ($facultyUserList as $fu) {
-    $uUsername = $fu[0];
-    $uPlainPass = $fu[1];
-    $uPrefix = $fu[2];
-    $uFullname = $fu[3];
-    $uPos = $fu[4];
-    $uDept = $fu[5];
-    $uRole = $fu[6];
-    $uPhone = $fu[7];
+// ซิงค์หรือสร้างผู้ใช้งานในระบบ (หากยังไม่ครบ 50 คน)
+$userCount = 0;
+try {
+    $userCount = (int)$pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
+} catch (Exception $e) {}
 
-    $checkStmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
-    $checkStmt->execute([$uUsername]);
-    $existingId = $checkStmt->fetchColumn();
+if ($userCount < 50) {
+    foreach ($facultyUserList as $fu) {
+        $uUsername = $fu[0];
+        $uPlainPass = $fu[1];
+        $uPrefix = $fu[2];
+        $uFullname = $fu[3];
+        $uPos = $fu[4];
+        $uDept = $fu[5];
+        $uRole = $fu[6];
+        $uPhone = $fu[7];
 
-    if ($existingId) {
-        $upd = $pdo->prepare("UPDATE users SET plain_password = ?, prefix = ?, fullname = ?, position = ?, department = ?, role = ?, phone = COALESCE(phone, ?) WHERE id = ?");
-        $upd->execute([$uPlainPass, $uPrefix, $uFullname, $uPos, $uDept, $uRole, $uPhone, $existingId]);
-    } else {
-        $ins = $pdo->prepare("INSERT INTO users (username, password, plain_password, prefix, fullname, position, department, role, phone) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $ins->execute([$uUsername, password_hash($uPlainPass, PASSWORD_DEFAULT), $uPlainPass, $uPrefix, $uFullname, $uPos, $uDept, $uRole, $uPhone]);
+        try {
+            $checkStmt = $pdo->prepare("SELECT id FROM users WHERE username = ?");
+            $checkStmt->execute([$uUsername]);
+            $existingId = $checkStmt->fetchColumn();
+
+            if ($existingId) {
+                $upd = $pdo->prepare("UPDATE users SET plain_password = ?, prefix = ?, fullname = ?, position = ?, department = ?, role = ?, phone = COALESCE(phone, ?) WHERE id = ?");
+                $upd->execute([$uPlainPass, $uPrefix, $uFullname, $uPos, $uDept, $uRole, $uPhone, $existingId]);
+            } else {
+                $ins = $pdo->prepare("INSERT INTO users (username, password, plain_password, prefix, fullname, position, department, role, phone) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $ins->execute([$uUsername, password_hash($uPlainPass, PASSWORD_DEFAULT), $uPlainPass, $uPrefix, $uFullname, $uPos, $uDept, $uRole, $uPhone]);
+            }
+        } catch (Exception $e) {}
     }
 }
 
