@@ -21,6 +21,13 @@ if (empty($dbUrl)) {
 if (empty($dbUrl)) {
     $dbUrl = trim($_ENV['POSTGRES_URL'] ?? ($_SERVER['POSTGRES_URL'] ?? (getenv('POSTGRES_URL') ?: '')));
 }
+
+// ค่าเริ่มต้นสำหรับระบบบน Vercel (Supabase Cloud Database ถาวร)
+// ช่วยให้เชื่อมต่อฐานข้อมูล Cloud อัตโนมัติทันที ทุกโปรเจกต์บน Vercel
+if (empty($dbUrl) && $isVercel) {
+    $dbUrl = 'postgresql://postgres:PnuVan2026#@db.rqhmadhdagvbiwlykmyy.supabase.co:5432/postgres';
+}
+
 $dbHost = trim($_ENV['MYSQL_HOST'] ?? ($_SERVER['MYSQL_HOST'] ?? (getenv('MYSQL_HOST') ?: (getenv('DB_HOST') ?: ''))));
 $dbDriver = 'sqlite';
 $dbConnError = '';
@@ -119,34 +126,46 @@ if ($dbDriver === 'mysql') {
         $dbDriver = 'sqlite';
     }
 } elseif ($dbDriver === 'pgsql') {
-    try {
-        $p = parseDatabaseUrl($dbUrl);
-        $h = $p['host'] ?? 'localhost';
-        $port = $p['port'] ?? 5432;
-        $u = isset($p['user']) ? urldecode($p['user']) : '';
-        $pw = isset($p['pass']) ? urldecode($p['pass']) : '';
-        $db = ltrim($p['path'] ?? '', '/');
-
-        $sslmode = 'prefer';
-        if (isset($p['query'])) {
-            parse_str($p['query'], $qParams);
-            if (!empty($qParams['sslmode'])) {
-                $sslmode = $qParams['sslmode'];
-            }
+    $p = parseDatabaseUrl($dbUrl);
+    $endpoints = [];
+    if (!empty($p)) {
+        $endpoints[] = $p;
+        // หากเป็น Supabase host ตรง ให้เพิ่ม Supabase Pooler (IPv4) เป็นทางเลือกสำรองอัตโนมัติ
+        if (strpos($p['host'] ?? '', 'supabase.co') !== false && preg_match('/db\.([a-zA-Z0-9]+)\.supabase\.co/', $p['host'], $sbMatch)) {
+            $ref = $sbMatch[1];
+            $pooler = $p;
+            $pooler['host'] = "aws-0-ap-northeast-2.pooler.supabase.com";
+            $pooler['port'] = 6543;
+            $pooler['user'] = "postgres." . $ref;
+            $endpoints[] = $pooler;
         }
-        // Managed Cloud PostgreSQL บังคับใช้ SSL
-        if (strpos($h, 'supabase.co') !== false || strpos($h, 'neon.tech') !== false || strpos($h, 'pooler.supabase.com') !== false || strpos($h, 'aivencloud.com') !== false) {
-            $sslmode = 'require';
-        }
+    }
 
-        $dsn = "pgsql:host={$h};port={$port};dbname={$db};sslmode={$sslmode}";
-        $pdo = new PDO($dsn, $u, $pw, [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        ]);
-    } catch (PDOException $e) {
-        $dbConnError = "PostgreSQL: " . $e->getMessage();
-        error_log("Remote PostgreSQL Connection Failed, falling back to SQLite: " . $e->getMessage());
+    $connected = false;
+    $lastErr = '';
+    foreach ($endpoints as $currP) {
+        try {
+            $h = $currP['host'] ?? 'localhost';
+            $port = $currP['port'] ?? 5432;
+            $u = isset($currP['user']) ? urldecode($currP['user']) : '';
+            $pw = isset($currP['pass']) ? urldecode($currP['pass']) : '';
+            $db = ltrim($currP['path'] ?? '', '/');
+            $dsn = "pgsql:host={$h};port={$port};dbname={$db};sslmode=require";
+            $pdo = new PDO($dsn, $u, $pw, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_TIMEOUT => 5
+            ]);
+            $connected = true;
+            break;
+        } catch (PDOException $e) {
+            $lastErr = $e->getMessage();
+        }
+    }
+
+    if (!$connected) {
+        $dbConnError = "PostgreSQL: " . ($lastErr ?: 'Connection failed');
+        error_log("Remote PostgreSQL Connection Failed, falling back to SQLite: " . $dbConnError);
         $dbDriver = 'sqlite';
     }
 }
