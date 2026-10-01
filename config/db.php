@@ -129,8 +129,7 @@ if ($dbDriver === 'mysql') {
     $p = parseDatabaseUrl($dbUrl);
     $endpoints = [];
     if (!empty($p)) {
-        $endpoints[] = $p;
-        // หากเป็น Supabase host ตรง ให้เพิ่ม Supabase Pooler (IPv4) เป็นทางเลือกสำรองอัตโนมัติ
+        // สำหรับ Supabase บน Vercel ให้ใช้ Pooler (IPv4) เป็นอันดับแรกเพื่อความเร็วสูงสุด
         if (strpos($p['host'] ?? '', 'supabase.co') !== false && preg_match('/db\.([a-zA-Z0-9]+)\.supabase\.co/', $p['host'], $sbMatch)) {
             $ref = $sbMatch[1];
             $pooler = $p;
@@ -139,6 +138,7 @@ if ($dbDriver === 'mysql') {
             $pooler['user'] = "postgres." . $ref;
             $endpoints[] = $pooler;
         }
+        $endpoints[] = $p;
     }
 
     $connected = false;
@@ -150,11 +150,10 @@ if ($dbDriver === 'mysql') {
             $u = isset($currP['user']) ? urldecode($currP['user']) : '';
             $pw = isset($currP['pass']) ? urldecode($currP['pass']) : '';
             $db = ltrim($currP['path'] ?? '', '/');
-            $dsn = "pgsql:host={$h};port={$port};dbname={$db};sslmode=require";
+            $dsn = "pgsql:host={$h};port={$port};dbname={$db};sslmode=require;connect_timeout=3";
             $pdo = new PDO($dsn, $u, $pw, [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_TIMEOUT => 5,
                 PDO::ATTR_EMULATE_PREPARES => true
             ]);
             $connected = true;
