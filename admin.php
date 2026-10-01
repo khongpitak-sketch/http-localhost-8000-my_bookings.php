@@ -244,16 +244,31 @@ require_once __DIR__ . '/includes/header.php';
 <div class="alert alert-warning border-warning shadow-sm mb-4" role="alert">
     <div class="d-flex align-items-start">
         <i class="fas fa-database text-warning fs-3 me-3 mt-1"></i>
-        <div>
+        <div class="w-100">
             <h6 class="alert-heading fw-bold mb-1"><i class="fas fa-cloud me-1"></i> คำแนะนำสำคัญ: ระบบตรวจพบการรันบน Vercel Serverless</h6>
             <div class="small text-secondary mb-2">
                 เนื่องจาก Vercel เป็น Serverless (ไม่มีฮาร์ดดิสก์ถาวร) ไฟล์ SQLite ใน <code>/tmp</code> จะแยกกล่องกันในแต่ละ Session ทำให้เมื่อ Admin ล็อกอินเข้ามาคนละเครื่อง ข้อมูลการจองรถจะไม่เชื่อมกัน
             </div>
+
+            <?php if (!empty($dbConnError)): ?>
+            <div class="alert alert-danger p-2 small mb-2">
+                <i class="fas fa-triangle-exclamation me-1"></i> <strong>ข้อผิดพลาดการเชื่อมต่อ Cloud DB:</strong> <?= htmlspecialchars($dbConnError) ?>
+            </div>
+            <?php elseif (!empty($dbUrl)): ?>
+            <div class="alert alert-info p-2 small mb-2">
+                <i class="fas fa-info-circle me-1"></i> ตรวจพบค่า DATABASE_URL (ชนิด: <?= htmlspecialchars(parse_url($dbUrl, PHP_URL_SCHEME) ?? '') ?>) กำลังตรวจสอบการเชื่อมต่อ
+            </div>
+            <?php else: ?>
+            <div class="alert alert-secondary p-2 small mb-2">
+                <i class="fas fa-circle-question me-1"></i> ยังตรวจไม่พบตัวแปร <code>DATABASE_URL</code> ในระบบ (อาจต้องรอ Redeploy หรือตรวจสอบชื่อตัวแปรใน Vercel)
+            </div>
+            <?php endif; ?>
+
             <div class="small">
                 <strong>วิธีเลือกใช้งานให้ข้อมูลคงอยู่ถาวร 100%:</strong>
                 <ol class="mb-0 ps-3 mt-1">
                     <li><strong>เปิดใช้งานจริงผ่านระบบมหาวิทยาลัย (แนะนำและง่ายที่สุด):</strong> ดับเบิ้ลคลิกไฟล์ <code>start_system.bat</code> บนเครื่องคอมพิวเตอร์ของคณะ ข้อมูล SQLite จะถูกเก็บถาวร 100% ข้อมูลไม่มีวันหาย และเปิดให้ทุกคนในคณะเข้าใช้งานผ่าน IP เครือข่ายได้ทันที</li>
-                    <li><strong>หากต้องการออนไลน์ผ่าน Vercel ข้ามอินเทอร์เน็ต:</strong> นำ Connection String จาก Cloud Database ฟรี (เช่น <strong>TiDB Cloud MySQL ฟรี</strong> หรือ <strong>Supabase Postgres ฟรี</strong>) ไปใส่ใน Vercel Environment Variables ช่อง <code>DATABASE_URL</code> ระบบจะเชื่อมต่อและบันทึกข้อมูลถาวรข้ามอุปกรณ์ให้ทันที</li>
+                    <li><strong>หากต้องการออนไลน์ผ่าน Vercel ข้ามอินเทอร์เน็ต:</strong> นำ Connection String จาก Cloud Database ฟรี (เช่น <strong>TiDB Cloud MySQL ฟรี</strong> หรือ <strong>Supabase Postgres ฟรี</strong>) ไปใส่ใน Vercel Environment Variables ช่อง <code>DATABASE_URL</code> แล้วกด Redeploy</li>
                 </ol>
             </div>
         </div>

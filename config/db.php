@@ -12,10 +12,18 @@ if (!defined('APP_VERSION')) {
 $isVercel = (getenv('VERCEL') || isset($_ENV['VERCEL']) || isset($_SERVER['VERCEL']));
 
 // ตรวจสอบการเชื่อมต่อ Cloud Database ภายนอก (Persistent Database for Vercel / Cloud)
+// ตรวจสอบการเชื่อมต่อ Cloud Database ภายนอก (Persistent Database for Vercel / Cloud)
 // รองรับ DATABASE_URL, MYSQL_URL, POSTGRES_URL หรือ MYSQL_HOST / DB_HOST
-$dbUrl = getenv('DATABASE_URL') ?: (getenv('MYSQL_URL') ?: (getenv('POSTGRES_URL') ?: ''));
-$dbHost = getenv('MYSQL_HOST') ?: (getenv('DB_HOST') ?: '');
+$dbUrl = trim($_ENV['DATABASE_URL'] ?? ($_SERVER['DATABASE_URL'] ?? (getenv('DATABASE_URL') ?: '')));
+if (empty($dbUrl)) {
+    $dbUrl = trim($_ENV['MYSQL_URL'] ?? ($_SERVER['MYSQL_URL'] ?? (getenv('MYSQL_URL') ?: '')));
+}
+if (empty($dbUrl)) {
+    $dbUrl = trim($_ENV['POSTGRES_URL'] ?? ($_SERVER['POSTGRES_URL'] ?? (getenv('POSTGRES_URL') ?: '')));
+}
+$dbHost = trim($_ENV['MYSQL_HOST'] ?? ($_SERVER['MYSQL_HOST'] ?? (getenv('MYSQL_HOST') ?: (getenv('DB_HOST') ?: ''))));
 $dbDriver = 'sqlite';
+$dbConnError = '';
 
 if (!empty($dbUrl)) {
     $parsed = parse_url($dbUrl);
@@ -71,6 +79,7 @@ if ($dbDriver === 'mysql') {
         }
         $pdo = new PDO($dsn, $u, $pw, $options);
     } catch (PDOException $e) {
+        $dbConnError = "MySQL: " . $e->getMessage();
         error_log("Remote MySQL Connection Failed, falling back to SQLite: " . $e->getMessage());
         $dbDriver = 'sqlite';
     }
@@ -101,6 +110,7 @@ if ($dbDriver === 'mysql') {
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         ]);
     } catch (PDOException $e) {
+        $dbConnError = "PostgreSQL: " . $e->getMessage();
         error_log("Remote PostgreSQL Connection Failed, falling back to SQLite: " . $e->getMessage());
         $dbDriver = 'sqlite';
     }
