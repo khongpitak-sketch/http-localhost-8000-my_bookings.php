@@ -137,6 +137,84 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             border-radius: 8px;
             font-size: 0.95rem;
         }
+
+        /* Table Sorting & Pagination UI Styles */
+        .table th.sortable-header {
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.2s ease, color 0.2s ease;
+            white-space: nowrap;
+            position: relative;
+        }
+        .table th.sortable-header:hover {
+            background-color: rgba(11, 60, 109, 0.08) !important;
+            color: var(--pnu-blue);
+        }
+        .table th.sortable-header .sort-icon {
+            display: inline-block;
+            font-size: 0.85rem;
+            transition: transform 0.2s ease, color 0.2s ease;
+        }
+        .table th.sortable-header .text-muted-opacity {
+            opacity: 0.35;
+        }
+        .table th.sortable-header:hover .text-muted-opacity {
+            opacity: 0.8;
+            color: var(--pnu-blue) !important;
+        }
+        .table th.sortable-header.sorted-asc,
+        .table th.sortable-header.sorted-desc {
+            background-color: rgba(11, 60, 109, 0.08) !important;
+            color: var(--pnu-blue);
+            font-weight: 600;
+        }
+
+        .table-pagination-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #dee2e6;
+            margin-top: 0.5rem;
+        }
+        .table-pagination-toolbar .page-info {
+            font-size: 0.875rem;
+            color: #6c757d;
+        }
+        .table-pagination-toolbar .pagination {
+            margin-bottom: 0;
+            display: flex;
+            gap: 3px;
+        }
+        .table-pagination-toolbar .page-link {
+            color: var(--pnu-blue);
+            border-color: #dee2e6;
+            font-size: 0.875rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 6px !important;
+            transition: all 0.15s ease;
+            background-color: #fff;
+        }
+        .table-pagination-toolbar .page-link:hover {
+            background-color: rgba(11, 60, 109, 0.08);
+            border-color: var(--pnu-blue);
+            color: var(--pnu-blue);
+        }
+        .table-pagination-toolbar .page-item.active .page-link {
+            background-color: var(--pnu-blue);
+            border-color: var(--pnu-blue);
+            color: #fff;
+            font-weight: 600;
+            box-shadow: 0 2px 4px rgba(11, 60, 109, 0.25);
+        }
+        .table-pagination-toolbar .page-item.disabled .page-link {
+            color: #adb5bd;
+            pointer-events: none;
+            background-color: #f8f9fa;
+            border-color: #dee2e6;
+        }
     </style>
 </head>
 <body>

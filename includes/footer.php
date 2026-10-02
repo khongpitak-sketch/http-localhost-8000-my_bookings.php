@@ -18,6 +18,8 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <!-- FullCalendar JS -->
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+<!-- Table Sorter & Pagination (10 Records / Page & Asc/Desc Toggle) -->
+<script src="assets/js/table-sorter.js?v=<?= defined('APP_VERSION') ? APP_VERSION : '2.0' ?>"></script>
 
 <?php if (!empty($isLoggedIn)): ?>
 <script>

@@ -145,49 +145,49 @@ require_once __DIR__ . '/includes/header.php';
         </div>
     <?php else: ?>
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
+            <table class="table table-hover align-middle mb-0 table-sortable-paginated" id="myBookingsTable" data-page-size="10">
                 <thead class="table-light">
                     <tr>
-                        <th>เลขที่เอกสาร</th>
-                        <th>รถยนต์</th>
-                        <th>ภารกิจ / วัตถุประสงค์</th>
-                        <th>เส้นทาง</th>
-                        <th>วันและเวลาเดินทาง</th>
-                        <th>สถานะคำขอ</th>
-                        <th class="text-center">จัดการ</th>
+                        <th title="คลิกเพื่อเรียงลำดับ น้อยไปหามาก / มากไปหาน้อย">เลขที่เอกสาร</th>
+                        <th title="คลิกเพื่อเรียงลำดับ น้อยไปหามาก / มากไปหาน้อย">รถยนต์</th>
+                        <th title="คลิกเพื่อเรียงลำดับ น้อยไปหามาก / มากไปหาน้อย">ภารกิจ / วัตถุประสงค์</th>
+                        <th title="คลิกเพื่อเรียงลำดับ น้อยไปหามาก / มากไปหาน้อย">เส้นทาง</th>
+                        <th title="คลิกเพื่อเรียงลำดับ น้อยไปหามาก / มากไปหาน้อย">วันและเวลาเดินทาง</th>
+                        <th title="คลิกเพื่อเรียงลำดับ น้อยไปหามาก / มากไปหาน้อย">สถานะคำขอ</th>
+                        <th class="text-center no-sort">จัดการ</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($bookings as $b): ?>
                     <tr>
-                        <td>
+                        <td data-sort-value="<?= htmlspecialchars($b['doc_no'] ?? '') ?>">
                             <strong class="text-secondary"><?= htmlspecialchars($b['doc_no'] ?? '-') ?></strong>
                             <div class="small text-muted"><?= thaiDateShort($b['created_date']) ?></div>
                         </td>
-                        <td>
+                        <td data-sort-value="<?= htmlspecialchars($b['plate_number'] . ' ' . $b['brand_model']) ?>">
                             <strong class="text-primary"><?= htmlspecialchars($b['plate_number']) ?></strong>
                             <div class="small text-muted"><?= htmlspecialchars($b['brand_model']) ?></div>
                         </td>
-                        <td>
+                        <td data-sort-value="<?= htmlspecialchars($b['purpose'] ?? '') ?>">
                             <div class="text-truncate" style="max-width: 250px;" title="<?= htmlspecialchars($b['purpose']) ?>">
                                 <?= htmlspecialchars($b['purpose']) ?>
                             </div>
                             <div class="small text-muted">ผู้ร่วมทาง <?= $b['passenger_count'] ?> คน (คุมรถ: <?= htmlspecialchars($b['controller_name']) ?>)</div>
                         </td>
-                        <td>
+                        <td data-sort-value="<?= htmlspecialchars($b['route_to'] ?? '') ?>">
                             <div class="small">
                                 <div><strong>จาก:</strong> <?= htmlspecialchars($b['route_from']) ?></div>
                                 <div class="text-danger"><strong>ถึง:</strong> <?= htmlspecialchars($b['route_to']) ?></div>
                             </div>
                         </td>
-                        <td>
+                        <td data-sort-value="<?= !empty($b['start_datetime']) ? strtotime($b['start_datetime']) : 0 ?>">
                             <div class="small">
                                 <div><i class="fas fa-arrow-right text-success me-1"></i> <?= thaiDate($b['start_datetime']) ?></div>
                                 <div><i class="fas fa-arrow-left text-danger me-1"></i> <?= thaiDate($b['end_datetime']) ?></div>
                             </div>
                         </td>
-                        <td><?= getStatusBadge($b['status'], $b) ?></td>
-                        <td class="text-center">
+                        <td data-sort-value="<?= htmlspecialchars($b['status'] ?? '') ?>"><?= getStatusBadge($b['status'], $b) ?></td>
+                        <td class="text-center no-sort">
                             <div class="btn-group btn-group-sm">
                                 <a href="booking_detail.php?id=<?= $b['id'] ?>" class="btn btn-outline-primary" title="ดูรายละเอียดและขั้นตอน">
                                     <i class="fas fa-eye"></i>
