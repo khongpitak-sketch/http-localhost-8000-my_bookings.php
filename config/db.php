@@ -732,3 +732,86 @@ function getStatusBadge($status, $bookingOrEndTime = null) {
             return '<span class="badge bg-secondary">' . htmlspecialchars($status) . '</span>';
     }
 }
+
+// ฟังก์ชันแสดงข้อมูลคอลัมน์ "สิ้นสุดการใช้รถ"
+function getTripCompletionBadge($b) {
+    if (empty($b) || !is_array($b)) return '<span class="text-muted">-</span>';
+
+    $status = $b['status'] ?? '';
+    $actualEnd = $b['actual_end_datetime'] ?? null;
+    $endDatetime = $b['end_datetime'] ?? null;
+    $startDatetime = $b['start_datetime'] ?? null;
+
+    // 1. สิ้นสุดการใช้รถแล้ว (Completed หรือมีวันเวลาคืนรถจริง)
+    if ($status === 'completed' || !empty($actualEnd)) {
+        $html = '<span class="badge bg-primary text-white"><i class="fas fa-flag-checkered me-1"></i> สิ้นสุดการใช้รถแล้ว</span>';
+        if (!empty($actualEnd)) {
+            $html .= '<div class="small text-muted mt-1" style="font-size: 0.8rem;"><i class="fas fa-calendar-check text-success me-1"></i>' . thaiDateShort($actualEnd) . '</div>';
+        }
+        if (!empty($b['end_mileage']) && !empty($b['start_mileage'])) {
+            $diff = (int)$b['end_mileage'] - (int)$b['start_mileage'];
+            if ($diff >= 0) {
+                $html .= '<div class="small text-muted" style="font-size: 0.75rem;"><i class="fas fa-tachometer-alt me-1 text-primary"></i>' . number_format($diff) . ' กม.</div>';
+            }
+        }
+        return $html;
+    }
+
+    // 2. คำขอที่ถูกยกเลิก หรือปฏิเสธ
+    if ($status === 'cancelled' || strpos($status, 'rejected') !== false) {
+        return '<span class="text-muted">-</span>';
+    }
+
+    // 3. ตรวจสอบเวลาปัจจุบันกับกำหนดเวลาเดินทาง
+    $now = time();
+    $endTime = !empty($endDatetime) ? strtotime($endDatetime) : 0;
+    $startTime = !empty($startDatetime) ? strtotime($startDatetime) : 0;
+
+    // หากถึงกำหนดเวลาสิ้นสุดการใช้รถแล้ว (เวลาปัจจุบัน >= กำหนดเวลาเดินทางกลับ)
+    if ($endTime > 0 && $now >= $endTime) {
+        $html = '<span class="badge bg-danger text-white"><i class="fas fa-clock-rotate-left me-1"></i> ถึงกำหนดสิ้นสุดการใช้รถ</span>';
+        $html .= '<div class="small text-danger mt-1" style="font-size: 0.8rem;"><i class="fas fa-clock me-1"></i>ครบกำหนด: ' . thaiDateShort($endDatetime) . '</div>';
+        $bookingId = (int)($b['id'] ?? 0);
+        $html .= '<div class="mt-1"><a href="booking_detail.php?id=' . $bookingId . '&action=return" class="btn btn-sm btn-outline-danger py-0 px-2 fw-semibold shadow-sm" style="font-size: 0.75rem;" title="คลิกเพื่อบันทึกการส่งมอบคืนรถและเลขไมล์"><i class="fas fa-undo-alt me-1"></i> บันทึกคืนรถ</a></div>';
+        return $html;
+    }
+
+    // อยู่ระหว่างช่วงเวลาเดินทาง
+    if ($startTime > 0 && $now >= $startTime) {
+        $html = '<span class="badge bg-warning text-dark"><i class="fas fa-car-side me-1"></i> อยู่ระหว่างใช้งาน</span>';
+        if ($endTime > 0) {
+            $html .= '<div class="small text-muted mt-1" style="font-size: 0.8rem;">กำหนดคืน: ' . thaiDateShort($endDatetime) . '</div>';
+        }
+        return $html;
+    }
+
+    // ยังไม่ถึงเวลาเดินทาง
+    $html = '<span class="badge bg-light text-secondary border"><i class="fas fa-hourglass-start me-1"></i> ยังไม่ถึงกำหนด</span>';
+    if ($endTime > 0) {
+        $html .= '<div class="small text-muted mt-1" style="font-size: 0.8rem;">กำหนดคืน: ' . thaiDateShort($endDatetime) . '</div>';
+    }
+    return $html;
+}
+
+// ค่าสำหรับเรียงลำดับคอลัมน์สิ้นสุดการใช้รถ
+function getTripCompletionSortValue($b) {
+    if (empty($b) || !is_array($b)) return '0';
+    $status = $b['status'] ?? '';
+    if ($status === 'completed' || !empty($b['actual_end_datetime'])) {
+        return '4_' . (!empty($b['actual_end_datetime']) ? strtotime($b['actual_end_datetime']) : '9999999999');
+    }
+    if ($status === 'cancelled' || strpos($status, 'rejected') !== false) {
+        return '0';
+    }
+    $now = time();
+    $endTime = !empty($b['end_datetime']) ? strtotime($b['end_datetime']) : 0;
+    if ($endTime > 0 && $now >= $endTime) {
+        return '3_' . $endTime; // ถึงกำหนดสิ้นสุดการใช้รถ
+    }
+    $startTime = !empty($b['start_datetime']) ? strtotime($b['start_datetime']) : 0;
+    if ($startTime > 0 && $now >= $startTime) {
+        return '2_' . $endTime; // อยู่ระหว่างใช้งาน
+    }
+    return '1_' . $endTime; // ยังไม่ถึงกำหนด
+}
+

@@ -308,6 +308,7 @@ require_once __DIR__ . '/includes/header.php';
                             <th title="คลิกเพื่อเรียงลำดับ น้อยไปหามาก / มากไปหาน้อย">ภารกิจ / ปลายทาง</th>
                             <th title="คลิกเพื่อเรียงลำดับ น้อยไปหามาก / มากไปหาน้อย">วันเวลาเดินทาง</th>
                             <th title="คลิกเพื่อเรียงลำดับ น้อยไปหามาก / มากไปหาน้อย">สถานะ</th>
+                            <th class="text-center" title="คลิกเพื่อเรียงลำดับ การสิ้นสุดการใช้รถ">สิ้นสุดการใช้รถ</th>
                             <th class="text-center no-sort">การจัดการ</th>
                         </tr>
                     </thead>
@@ -337,7 +338,10 @@ require_once __DIR__ . '/includes/header.php';
                                     <div><strong>กลับ:</strong> <?= thaiDateShort($b['end_datetime']) ?></div>
                                 </small>
                             </td>
-                            <td data-sort-value="<?= htmlspecialchars($b['status'] ?? '') ?>"><?= getStatusBadge($b['status']) ?></td>
+                            <td data-sort-value="<?= htmlspecialchars($b['status'] ?? '') ?>"><?= getStatusBadge($b['status'], $b) ?></td>
+                            <td class="text-center" data-sort-value="<?= getTripCompletionSortValue($b) ?>">
+                                <?= getTripCompletionBadge($b) ?>
+                            </td>
                             <td class="text-center no-sort">
                                 <a href="booking_detail.php?id=<?= $b['id'] ?>" class="btn btn-outline-primary btn-sm me-1" title="ดูรายละเอียด">
                                     <i class="fas fa-eye"></i>

@@ -360,13 +360,14 @@ require_once __DIR__ . '/includes/header.php';
                                 <th title="คลิกเพื่อเรียงลำดับ น้อยไปหามาก / มากไปหาน้อย">วัตถุประสงค์ / ปลายทาง</th>
                                 <th title="คลิกเพื่อเรียงลำดับ น้อยไปหามาก / มากไปหาน้อย">วันเดินทาง</th>
                                 <th title="คลิกเพื่อเรียงลำดับ น้อยไปหามาก / มากไปหาน้อย">สถานะปัจจุบัน</th>
+                                <th class="text-center" title="คลิกเพื่อเรียงลำดับ การสิ้นสุดการใช้รถ">สิ้นสุดการใช้รถ</th>
                                 <th class="text-center no-sort" style="min-width: 220px;">ดำเนินการ</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php if (empty($allBookings)): ?>
                             <tr>
-                                <td colspan="7" class="text-center py-5">
+                                <td colspan="8" class="text-center py-5">
                                     <div class="py-4">
                                         <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center mb-3 shadow-sm" style="width: 70px; height: 70px;">
                                             <i class="fas fa-calendar-check fs-2 text-success"></i>
@@ -407,6 +408,9 @@ require_once __DIR__ . '/includes/header.php';
                                     </small>
                                 </td>
                                 <td data-sort-value="<?= htmlspecialchars($b['status'] ?? '') ?>"><?= getStatusBadge($b['status'], $b) ?></td>
+                                <td class="text-center" data-sort-value="<?= getTripCompletionSortValue($b) ?>">
+                                    <?= getTripCompletionBadge($b) ?>
+                                </td>
                                 <td class="text-center no-sort">
                                     <div class="d-flex justify-content-center gap-1">
                                         <a href="booking_detail.php?id=<?= $b['id'] ?>" class="btn btn-outline-primary btn-sm" title="เปิดดูรายละเอียด">

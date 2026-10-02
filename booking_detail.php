@@ -865,6 +865,35 @@ function calcDistance() {
         display.innerText = '- กม.';
     }
 }
+
+document.addEventListener("DOMContentLoaded", function() {
+    var params = new URLSearchParams(window.location.search);
+    if (params.get('action') === 'return' || params.get('action') === 'complete' || window.location.hash === '#modalCompleteTrip' || window.location.hash === '#returnSection') {
+        var el = document.getElementById('modalCompleteTrip');
+        if (el) {
+            <?php if ($isAdmin): ?>
+            var modal = bootstrap.Modal.getOrCreateInstance(el);
+            modal.show();
+            <?php else: ?>
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'บันทึกสิ้นสุดการใช้รถ',
+                    text: 'กรุณาเข้าสู่ระบบในฐานะเจ้าหน้าที่/Admin เพื่อบันทึกข้อมูลการส่งมอบคืนรถและเลขไมล์',
+                    showCancelButton: true,
+                    confirmButtonColor: '#0d6efd',
+                    confirmButtonText: '<i class="fas fa-key me-1"></i> เข้าสู่ระบบ Admin',
+                    cancelButtonText: 'ปิด'
+                }).then(function(result) {
+                    if (result.isConfirmed) {
+                        window.location.href = 'login.php?redirect=' + encodeURIComponent(window.location.href);
+                    }
+                });
+            }
+            <?php endif; ?>
+        }
+    }
+});
 </script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
