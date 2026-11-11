@@ -252,7 +252,7 @@ if ($failedAttempts >= 5 && (time() - $lastFailedTime) < 300) {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="assets/js/pwa.js?v=<?= defined('APP_VERSION') ? APP_VERSION : '2.0' ?>"></script>
+<script src="assets/js/pwa.js?v=2.0.2"></script>
 <script>
     const togglePassBtn = document.getElementById('togglePassBtn');
     const passwordInput = document.getElementById('passwordInput');

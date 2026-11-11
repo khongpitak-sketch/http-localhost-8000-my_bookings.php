@@ -36,7 +36,60 @@
         return /Android/i.test(window.navigator.userAgent || '');
     }
 
+    function isInAppBrowser() {
+        var ua = window.navigator.userAgent || '';
+        return /Line\/|FBAN|FBAV|Instagram/i.test(ua);
+    }
+
     var deferredPrompt = null;
+
+    // สร้างแถบแจ้งเตือนติดตั้งแอปลอยด้านล่างหน้าจอมือถือ (Smart Floating Banner สำหรับ iPhone & Android)
+    function ensureFloatingBanner() {
+        if (isStandalone() || document.getElementById('pwaFloatingBanner')) {
+            return;
+        }
+        if (sessionStorage.getItem('pwa_banner_dismissed') === '1') {
+            return;
+        }
+
+        var banner = document.createElement('div');
+        banner.id = 'pwaFloatingBanner';
+        banner.className = 'pwa-install-banner';
+        banner.style.cssText = 'position:fixed;left:12px;right:12px;bottom:14px;z-index:1045;background:linear-gradient(135deg,#0b3c6d 0%,#16508b 100%);color:#fff;border-radius:16px;padding:12px 14px;box-shadow:0 10px 30px rgba(0,0,0,0.35);border:1.5px solid #c59b27;display:flex;align-items:center;justify-content:space-between;gap:10px;max-width:520px;margin:0 auto;';
+
+        var subText = isIOS()
+            ? 'สำหรับ iPhone: แตะเพื่อดูวิธีเพิ่มแอปลงหน้าจอโฮม'
+            : 'ติดตั้งลงจอมือถือ เข้าใช้งานได้ทันทีไม่ต้องผ่านเว็บ';
+
+        banner.innerHTML = `
+            <div class="d-flex align-items-center gap-2 pwa-install-trigger" style="cursor:pointer;flex:1;min-width:0;">
+                <img src="assets/icons/icon.svg" alt="App Icon" style="width:44px;height:44px;border-radius:10px;border:1.5px solid #c59b27;flex-shrink:0;background:#0b3c6d;">
+                <div style="min-width:0;">
+                    <div class="fw-bold text-warning" style="font-size:0.9rem;line-height:1.2;">แอปจองรถ FMS PNU (v2.0)</div>
+                    <div class="text-light opacity-90 text-truncate" style="font-size:0.76rem;">${subText}</div>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                <button type="button" class="btn btn-warning btn-sm fw-bold text-dark px-3 py-1 pwa-install-trigger" style="border-radius:8px;font-size:0.82rem;">
+                    <i class="fas fa-download me-1"></i>ติดตั้ง
+                </button>
+                <button type="button" id="pwaBannerCloseBtn" class="btn btn-sm text-light opacity-75 px-1" title="ปิด">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+
+        document.body.appendChild(banner);
+
+        var closeBtn = document.getElementById('pwaBannerCloseBtn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                banner.remove();
+                sessionStorage.setItem('pwa_banner_dismissed', '1');
+            });
+        }
+    }
 
     // 3. สร้าง Modal แนะนำการติดตั้ง PWA (ทั้ง iOS และ Android)
     function ensureInstallModal() {
@@ -58,6 +111,11 @@
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body p-4">
+                        <!-- แจ้งเตือนกรณีเปิดผ่าน LINE หรือ Facebook ในมือถือ -->
+                        <div id="pwaInAppWarning" class="alert alert-warning small mb-3 d-none" style="border-radius: 12px;">
+                            <i class="fas fa-triangle-exclamation me-1 text-danger"></i>
+                            <strong>คำแนะนำสำคัญ:</strong> ขณะนี้ท่านกำลังเปิดลิงก์ผ่านแอปแชท (เช่น LINE/Facebook) กรุณากดปุ่มแชร์มุมขวาบน/ล่าง แล้วเลือก <strong>"เปิดใน Safari"</strong> (สำหรับ iPhone) หรือ <strong>"เปิดในเบราว์เซอร์เริ่มต้น/Chrome"</strong> ก่อนติดตั้งแอปครับ
+                        </div>
                         <!-- ส่วนแนะนำสำหรับ iOS (iPhone / iPad) -->
                         <div id="pwaGuideIOS" class="mb-3">
                             <div class="d-flex align-items-center gap-2 mb-2">
@@ -153,6 +211,15 @@
         var iosSection = document.getElementById('pwaGuideIOS');
         var androidSection = document.getElementById('pwaGuideAndroid');
         var directWrap = document.getElementById('pwaDirectInstallWrap');
+        var inAppWarn = document.getElementById('pwaInAppWarning');
+
+        if (inAppWarn) {
+            if (isInAppBrowser()) {
+                inAppWarn.classList.remove('d-none');
+            } else {
+                inAppWarn.classList.add('d-none');
+            }
+        }
 
         if (directWrap) {
             if (deferredPrompt) {
@@ -197,6 +264,10 @@
         btns.forEach(function (btn) {
             btn.classList.add('d-none');
         });
+        var banner = document.getElementById('pwaFloatingBanner');
+        if (banner) {
+            banner.remove();
+        }
     }
 
     function showInstallButtons() {
@@ -208,6 +279,7 @@
         btns.forEach(function (btn) {
             btn.classList.remove('d-none');
         });
+        ensureFloatingBanner();
     }
 
     // 4. ดักจับเหตุการณ์ beforeinstallprompt บน Android / Chrome / Edge

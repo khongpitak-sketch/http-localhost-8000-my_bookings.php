@@ -311,9 +311,14 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <small class="text-light opacity-75" style="font-size: 0.75rem;">คณะวิทยาการจัดการ มหาวิทยาลัยนราธิวาสราชนครินทร์</small>
             </div>
         </a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain">
-            <span class="navbar-toggler-icon"></span>
-        </button>
+        <div class="d-flex align-items-center gap-1">
+            <button type="button" class="btn btn-warning btn-sm py-1 px-2 fw-bold text-dark d-lg-none pwa-install-trigger shadow-sm" style="font-size: 0.78rem; border-radius: 7px;">
+                <i class="fas fa-download me-1"></i>ติดตั้งแอป
+            </button>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+        </div>
         <div class="collapse navbar-collapse" id="navbarMain">
             <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-3">
                 <li class="nav-item">

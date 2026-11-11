@@ -21,7 +21,7 @@
 <!-- Table Sorter & Pagination (10 Records / Page & Asc/Desc Toggle) -->
 <script src="assets/js/table-sorter.js?v=<?= defined('APP_VERSION') ? APP_VERSION : '2.0' ?>"></script>
 <!-- Progressive Web App (PWA) Support for Android & iOS -->
-<script src="assets/js/pwa.js?v=<?= defined('APP_VERSION') ? APP_VERSION : '2.0' ?>"></script>
+<script src="assets/js/pwa.js?v=2.0.2"></script>
 
 <?php if (!empty($isLoggedIn)): ?>
 <script>
