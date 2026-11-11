@@ -80,6 +80,10 @@ $emblemBase64 = file_exists($emblemPath) ? 'data:image/png;base64,' . base64_enc
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>หนังสือขออนุญาตใช้รถยนต์ - <?= htmlspecialchars($b['doc_no'] ?? '') ?></title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0b3c6d">
+    <link rel="icon" type="image/svg+xml" href="assets/icons/icon.svg">
+    <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
     <!-- Google Font Sarabun สำหรับหนังสือราชการ -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

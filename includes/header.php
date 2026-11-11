@@ -8,8 +8,24 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>ระบบขออนุญาตใช้รถยนต์ (v<?= APP_VERSION ?>) - คณะวิทยาการจัดการ มหาวิทยาลัยนราธิวาสราชนครินทร์</title>
+    <!-- PWA Manifest & Cross-Platform Meta Tags (Android & iOS) -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0b3c6d">
+    <meta name="application-name" content="จองรถ FMS PNU">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="จองรถ FMS PNU">
+    <meta name="format-detection" content="telephone=no">
+    <!-- SVG & PNG Icons for Android, iOS & Desktop -->
+    <link rel="icon" type="image/svg+xml" href="assets/icons/icon.svg">
+    <link rel="alternate icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png">
+    <link rel="mask-icon" href="assets/icons/safari-pinned-tab.svg" color="#0b3c6d">
+    <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon.png">
+    <link rel="apple-touch-icon" type="image/svg+xml" href="assets/icons/apple-touch-icon.svg">
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome Icons -->
@@ -215,6 +231,26 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             background-color: #f8f9fa;
             border-color: #dee2e6;
         }
+        /* PWA Standalone Safe-Area Support (iOS Notch & Home Indicator) */
+        html.pwa-standalone body {
+            padding-top: env(safe-area-inset-top, 0px);
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+            padding-left: env(safe-area-inset-left, 0px);
+            padding-right: env(safe-area-inset-right, 0px);
+        }
+        .btn-pwa-install {
+            background: rgba(255, 255, 255, 0.14);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        .btn-pwa-install:hover {
+            background: #fff;
+            color: var(--pnu-blue);
+            border-color: #fff;
+        }
     </style>
 </head>
 <body>
@@ -324,7 +360,10 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     </li>
                 <?php endif; ?>
             </ul>
-            <div class="d-flex align-items-center gap-2">
+            <div class="d-flex align-items-center flex-wrap gap-2">
+                <button type="button" class="btn btn-pwa-install btn-sm px-2 pwa-install-trigger" title="ติดตั้งเป็นแอปบนมือถือ Android / iOS หรือคอมพิวเตอร์">
+                    <i class="fas fa-mobile-screen-button me-1"></i> ติดตั้งแอป
+                </button>
                 <?php if ($isLoggedIn): ?>
                     <a href="book.php" class="btn btn-gold btn-sm px-3 shadow-sm">
                         <i class="fas fa-plus-circle me-1"></i> จองรถใหม่

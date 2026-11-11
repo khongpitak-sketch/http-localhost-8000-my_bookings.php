@@ -1,0 +1,116 @@
+{
+  "id": "/index.php",
+  "name": "ระบบขออนุญาตใช้รถยนต์ (v2.0) - คณะวิทยาการจัดการ ม.นราธิวาสราชนครินทร์",
+  "short_name": "จองรถ FMS PNU",
+  "description": "ระบบขออนุญาตใช้รถยนต์ส่วนกลาง (v2.0) คณะวิทยาการจัดการ มหาวิทยาลัยนราธิวาสราชนครินทร์ รองรับการใช้งานผ่านมือถือทั้ง Android และ iOS",
+  "start_url": "/index.php?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
+  "orientation": "portrait-primary",
+  "background_color": "#0b3c6d",
+  "theme_color": "#0b3c6d",
+  "lang": "th",
+  "dir": "ltr",
+  "categories": [
+    "productivity",
+    "business",
+    "utilities",
+    "education"
+  ],
+  "icons": [
+    {
+      "src": "assets/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    },
+    {
+      "src": "assets/icons/apple-touch-icon.svg",
+      "sizes": "180x180 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "assets/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "assets/icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "ยื่นขอใช้รถยนต์",
+      "short_name": "จองรถใหม่",
+      "description": "สร้างคำขออนุญาตใช้รถยนต์ส่วนกลาง",
+      "url": "/book.php?source=pwa_shortcut",
+      "icons": [
+        {
+          "src": "assets/icons/shortcut-book.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "ติดตามสถานะคำขอ",
+      "short_name": "สถานะคำขอ",
+      "description": "ตรวจสอบสถานะการอนุมัติคำขอใช้รถยนต์",
+      "url": "/my_bookings.php?source=pwa_shortcut",
+      "icons": [
+        {
+          "src": "assets/icons/shortcut-status.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "ปฏิทินการใช้รถยนต์",
+      "short_name": "ปฏิทินรถ",
+      "description": "ดูตารางและปฏิทินการใช้รถยนต์ทั้งหมด",
+      "url": "/index.php?source=pwa_shortcut",
+      "icons": [
+        {
+          "src": "assets/icons/shortcut-calendar.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ]
+}

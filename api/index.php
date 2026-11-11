@@ -36,20 +36,27 @@ if (is_file($targetFile . '.php')) {
 if (is_file($targetFile)) {
     $ext = strtolower(pathinfo($targetFile, PATHINFO_EXTENSION));
     $mimes = [
-        'css'   => 'text/css',
-        'js'    => 'application/javascript',
-        'png'   => 'image/png',
-        'jpg'   => 'image/jpeg',
-        'jpeg'  => 'image/jpeg',
-        'gif'   => 'image/gif',
-        'svg'   => 'image/svg+xml',
-        'ico'   => 'image/x-icon',
-        'woff'  => 'font/woff',
-        'woff2' => 'font/woff2',
-        'ttf'   => 'font/ttf'
+        'css'         => 'text/css; charset=utf-8',
+        'js'          => 'application/javascript; charset=utf-8',
+        'json'        => 'application/manifest+json; charset=utf-8',
+        'webmanifest' => 'application/manifest+json; charset=utf-8',
+        'html'        => 'text/html; charset=utf-8',
+        'png'         => 'image/png',
+        'jpg'         => 'image/jpeg',
+        'jpeg'        => 'image/jpeg',
+        'gif'         => 'image/gif',
+        'svg'         => 'image/svg+xml',
+        'ico'         => 'image/x-icon',
+        'woff'        => 'font/woff',
+        'woff2'       => 'font/woff2',
+        'ttf'         => 'font/ttf'
     ];
     if (isset($mimes[$ext])) {
         header('Content-Type: ' . $mimes[$ext]);
+    }
+    if (basename($targetFile) === 'sw.js') {
+        header('Service-Worker-Allowed: /');
+        header('Cache-Control: no-cache, no-store, must-revalidate');
     }
     readfile($targetFile);
     exit;

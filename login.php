@@ -94,8 +94,22 @@ if ($failedAttempts >= 5 && (time() - $lastFailedTime) < 300) {
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>เข้าสู่ระบบ (Login) - คณะวิทยาการจัดการ ม.นราธิวาสราชนครินทร์</title>
+    <!-- PWA Manifest & Cross-Platform Meta Tags (Android & iOS) -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0b3c6d">
+    <meta name="application-name" content="จองรถ FMS PNU">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="จองรถ FMS PNU">
+    <link rel="icon" type="image/svg+xml" href="assets/icons/icon.svg">
+    <link rel="alternate icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png">
+    <link rel="mask-icon" href="assets/icons/safari-pinned-tab.svg" color="#0b3c6d">
+    <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/icons/apple-touch-icon.png">
+    <link rel="apple-touch-icon" type="image/svg+xml" href="assets/icons/apple-touch-icon.svg">
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
@@ -221,10 +235,15 @@ if ($failedAttempts >= 5 && (time() - $lastFailedTime) < 300) {
             </button>
 
             <div class="text-center pt-2 border-top">
-                <a href="index.php" class="text-decoration-none small text-muted">
-                    <i class="fas fa-arrow-left me-1"></i> กลับหน้าหลักระบบ
-                </a>
-                <div class="text-muted opacity-75 mt-2" style="font-size: 0.72rem;">
+                <div class="d-flex justify-content-center align-items-center gap-3 flex-wrap mb-1">
+                    <a href="index.php" class="text-decoration-none small text-muted">
+                        <i class="fas fa-arrow-left me-1"></i> กลับหน้าหลักระบบ
+                    </a>
+                    <button type="button" class="btn btn-link btn-sm text-decoration-none p-0 small fw-semibold text-primary pwa-install-trigger">
+                        <i class="fas fa-mobile-screen-button me-1"></i> ติดตั้งแอปลงมือถือ (Android / iOS)
+                    </button>
+                </div>
+                <div class="text-muted opacity-75 mt-1" style="font-size: 0.72rem;">
                     <?= defined('APP_VERSION_FULL') ? APP_VERSION_FULL : 'Version 2.0' ?>
                 </div>
             </div>
@@ -233,6 +252,7 @@ if ($failedAttempts >= 5 && (time() - $lastFailedTime) < 300) {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="assets/js/pwa.js?v=<?= defined('APP_VERSION') ? APP_VERSION : '2.0' ?>"></script>
 <script>
     const togglePassBtn = document.getElementById('togglePassBtn');
     const passwordInput = document.getElementById('passwordInput');

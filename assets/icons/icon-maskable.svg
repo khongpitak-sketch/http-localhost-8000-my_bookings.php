@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGradMask" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b3c6d"/>
+      <stop offset="55%" stop-color="#16508b"/>
+      <stop offset="100%" stop-color="#072747"/>
+    </linearGradient>
+    <linearGradient id="goldGradMask" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f5d77f"/>
+      <stop offset="50%" stop-color="#c59b27"/>
+      <stop offset="100%" stop-color="#9a7413"/>
+    </linearGradient>
+    <linearGradient id="vanBodyMask" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e2e8f0"/>
+    </linearGradient>
+    <linearGradient id="glassGradMask" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="100%" stop-color="#0b2545"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Full-Bleed Background for Android Maskable / iOS Homescreen -->
+  <rect x="0" y="0" width="512" height="512" fill="url(#bgGradMask)"/>
+  <circle cx="256" cy="256" r="196" fill="#1e5799" opacity="0.25"/>
+  <circle cx="256" cy="256" r="196" fill="none" stroke="url(#goldGradMask)" stroke-width="4" opacity="0.65"/>
+
+  <!-- Safe-Zone Scaled Content (80% center area for Maskable Icon Spec) -->
+  <g transform="translate(256, 256) scale(0.78) translate(-256, -256)">
+    <!-- Top Header Badge: FMS PNU -->
+    <rect x="136" y="56" width="240" height="48" rx="24" fill="url(#goldGradMask)"/>
+    <text x="256" y="88" font-family="'Prompt', 'Sarabun', sans-serif" font-size="26" font-weight="800" fill="#072747" text-anchor="middle" letter-spacing="1.5">FMS • PNU</text>
+
+    <!-- Van Graphic -->
+    <g transform="translate(0, 14)">
+      <ellipse cx="256" cy="348" rx="168" ry="14" fill="#04182e" opacity="0.55"/>
+      <path d="M84,268 L84,205 C84,183 102,165 124,165 L320,165 C348,165 368,176 384,202 L416,248 C425,260 428,272 428,286 L428,312 C428,324 418,332 406,332 L106,332 C94,332 84,322 84,310 Z" fill="url(#vanBodyMask)"/>
+      <path d="M84,274 L426,274 L428,288 L84,288 Z" fill="url(#goldGradMask)"/>
+      <rect x="140" y="153" width="160" height="8" rx="4" fill="url(#goldGradMask)"/>
+      <rect x="104" y="182" width="76" height="62" rx="10" fill="url(#glassGradMask)"/>
+      <rect x="192" y="182" width="84" height="62" rx="10" fill="url(#glassGradMask)"/>
+      <path d="M290,182 L338,182 C354,182 366,190 378,208 L398,238 C401,242 398,244 392,244 L290,244 Z" fill="url(#glassGradMask)"/>
+      <path d="M404,256 L426,256 L428,272 L404,272 C399,272 396,268 396,264 C396,260 399,256 404,256 Z" fill="#38bdf8"/>
+      <rect x="84" y="250" width="12" height="24" rx="4" fill="#ef4444"/>
+      <circle cx="158" cy="328" r="38" fill="#0f172a" stroke="#ffffff" stroke-width="4"/>
+      <circle cx="158" cy="328" r="22" fill="url(#goldGradMask)"/>
+      <circle cx="158" cy="328" r="9" fill="#0f172a"/>
+      <circle cx="350" cy="328" r="38" fill="#0f172a" stroke="#ffffff" stroke-width="4"/>
+      <circle cx="350" cy="328" r="22" fill="url(#goldGradMask)"/>
+      <circle cx="350" cy="328" r="9" fill="#0f172a"/>
+      <circle cx="240" cy="280" r="22" fill="#0b3c6d" stroke="url(#goldGradMask)" stroke-width="3.5"/>
+      <path d="M230,280 L237,287 L252,272" fill="none" stroke="#f5d77f" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+
+    <!-- Bottom Label -->
+    <rect x="106" y="404" width="300" height="44" rx="22" fill="#072747" stroke="url(#goldGradMask)" stroke-width="2.5"/>
+    <text x="256" y="433" font-family="'Prompt', 'Sarabun', sans-serif" font-size="22" font-weight="700" fill="#ffffff" text-anchor="middle">จองรถยนต์ FMS</text>
+  </g>
+</svg>

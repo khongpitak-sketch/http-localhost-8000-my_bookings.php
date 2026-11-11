@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0b3c6d">
+    <title>ไม่มีการเชื่อมต่ออินเทอร์เน็ต - ระบบขออนุญาตใช้รถยนต์ FMS PNU</title>
+    <link rel="icon" type="image/svg+xml" href="assets/icons/icon.svg">
+    <style>
+        :root {
+            --pnu-blue: #0b3c6d;
+            --pnu-gold: #c59b27;
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Prompt', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0b3c6d 0%, #1e5799 100%);
+            color: #1e293b;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .offline-card {
+            background: #ffffff;
+            border-radius: 20px;
+            max-width: 420px;
+            width: 100%;
+            padding: 36px 28px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            border-top: 5px solid var(--pnu-gold);
+        }
+        .icon-wrap {
+            width: 96px;
+            height: 96px;
+            margin: 0 auto 20px;
+        }
+        .icon-wrap img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 22px;
+            box-shadow: 0 8px 20px rgba(11, 60, 109, 0.25);
+        }
+        h1 {
+            font-size: 1.3rem;
+            color: var(--pnu-blue);
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        p {
+            font-size: 0.95rem;
+            color: #64748b;
+            line-height: 1.6;
+            margin-bottom: 24px;
+        }
+        .btn-retry {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            background: var(--pnu-blue);
+            color: #ffffff;
+            border: none;
+            padding: 13px 20px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.2s, transform 0.15s;
+        }
+        .btn-retry:hover {
+            background: #072747;
+            transform: translateY(-1px);
+        }
+        .sub-footer {
+            margin-top: 20px;
+            font-size: 0.8rem;
+            color: #94a3b8;
+        }
+    </style>
+</head>
+<body>
+    <div class="offline-card">
+        <div class="icon-wrap">
+            <img src="assets/icons/icon.svg" alt="FMS PNU Car Booking Icon">
+        </div>
+        <h1>ขณะนี้คุณอยู่ในโหมดออฟไลน์</h1>
+        <p>
+            ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ระบบขออนุญาตใช้รถยนต์ได้ในขณะนี้ 
+            กรุณาตรวจสอบสัญญาณอินเทอร์เน็ตหรือ Wi-Fi ของท่านแล้วลองใหม่อีกครั้ง
+        </p>
+        <button class="btn-retry" onclick="window.location.reload();">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+                <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+                <path d="M16 16h5v5"/>
+            </svg>
+            ลองเชื่อมต่อใหม่อีกครั้ง
+        </button>
+        <div class="sub-footer">
+            ระบบขออนุญาตใช้รถยนต์ (v2.0)<br>
+            คณะวิทยาการจัดการ มหาวิทยาลัยนราธิวาสราชนครินทร์
+        </div>
+    </div>
+    <script>
+        window.addEventListener('online', function() {
+            window.location.reload();
+        });
+    </script>
+</body>
+</html>
