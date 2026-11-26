@@ -5,8 +5,9 @@ require_once __DIR__ . '/includes/auth.php';
 
 requireAdmin();
 
-$alertMsg = '';
-$alertType = 'info';
+$alertMsg = $_SESSION['user_alert_msg'] ?? '';
+$alertType = $_SESSION['user_alert_type'] ?? 'info';
+unset($_SESSION['user_alert_msg'], $_SESSION['user_alert_type']);
 
 // ประมวลผลคำขอจาก Admin
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
@@ -18,7 +19,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
         $fullname = trim($_POST['fullname'] ?? '');
         $username = trim($_POST['username'] ?? '');
         $password = trim($_POST['password'] ?? '123456');
-        $position = trim($_POST['position'] ?? 'อาจารย์ / บุคลากร');
+        $position = trim($_POST['position'] ?? 'อาจารย์ประจำสาขาวิชา');
         $department = trim($_POST['department'] ?? 'คณะวิทยาการจัดการ');
         $role = trim($_POST['role'] ?? 'requester');
         $phone = trim($_POST['phone'] ?? '');
@@ -33,16 +34,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                 $hash = password_hash($password, PASSWORD_DEFAULT);
                 $stmt = $pdo->prepare("INSERT INTO users (username, password, plain_password, prefix, fullname, position, department, role, phone) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 $stmt->execute([$username, $hash, $password, $prefix, $fullname, $position, $department, $role, $phone]);
-                $alertMsg = "เพิ่มผู้ใช้งาน '{$prefix}{$fullname}' (Username: {$username}) เรียบร้อยแล้ว";
-                $alertType = 'success';
+                $_SESSION['user_alert_msg'] = "เพิ่มผู้ใช้งาน '{$prefix}{$fullname}' (Username: {$username}) เรียบร้อยแล้ว";
+                $_SESSION['user_alert_type'] = 'success';
             } catch (PDOException $e) {
-                $alertMsg = "ข้อผิดพลาด: ชื่อผู้ใช้ (Username) '{$username}' นี้มีอยู่ในระบบแล้ว กรุณาใช้ชื่ออื่น";
-                $alertType = 'danger';
+                $_SESSION['user_alert_msg'] = "ข้อผิดพลาด: ชื่อผู้ใช้ (Username) '{$username}' นี้มีอยู่ในระบบแล้ว กรุณาใช้ชื่ออื่น";
+                $_SESSION['user_alert_type'] = 'danger';
             }
         } else {
-            $alertMsg = "กรุณาระบุชื่อ-นามสกุล และชื่อผู้ใช้งาน";
-            $alertType = 'danger';
+            $_SESSION['user_alert_msg'] = "กรุณาระบุชื่อ-นามสกุล และชื่อผู้ใช้งาน";
+            $_SESSION['user_alert_type'] = 'danger';
         }
+        header("Location: users.php");
+        exit;
     }
 
     // 2. แก้ไขข้อมูลผู้ใช้งานและรหัสผ่าน
@@ -59,22 +62,43 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
         if ($userId > 0 && !empty($username) && !empty($fullname)) {
             try {
-                if (!empty($newPassword)) {
-                    $hash = password_hash($newPassword, PASSWORD_DEFAULT);
-                    $stmt = $pdo->prepare("UPDATE users SET username = ?, prefix = ?, fullname = ?, position = ?, department = ?, role = ?, phone = ?, password = ?, plain_password = ? WHERE id = ?");
-                    $stmt->execute([$username, $prefix, $fullname, $position, $department, $role, $phone, $hash, $newPassword, $userId]);
-                    $alertMsg = "แก้ไขข้อมูลและเปลี่ยนรหัสผ่านของผู้ใช้ '{$fullname}' เป็น '{$newPassword}' สำเร็จ";
+                // ตรวจสอบว่าชื่อผู้ใช้ซ้ำกับบัญชีอื่นหรือไม่
+                $checkStmt = $pdo->prepare("SELECT id FROM users WHERE username = ? AND id != ?");
+                $checkStmt->execute([$username, $userId]);
+                if ($checkStmt->fetchColumn()) {
+                    $_SESSION['user_alert_msg'] = "ข้อผิดพลาด: ชื่อผู้ใช้ (Username) '{$username}' นี้มีผู้อื่นใช้งานแล้ว กรุณาใช้ชื่ออื่น";
+                    $_SESSION['user_alert_type'] = 'danger';
                 } else {
-                    $stmt = $pdo->prepare("UPDATE users SET username = ?, prefix = ?, fullname = ?, position = ?, department = ?, role = ?, phone = ? WHERE id = ?");
-                    $stmt->execute([$username, $prefix, $fullname, $position, $department, $role, $phone, $userId]);
-                    $alertMsg = "บันทึกการแก้ไขข้อมูลผู้ใช้ '{$fullname}' สำเร็จ";
+                    if (!empty($newPassword)) {
+                        $hash = password_hash($newPassword, PASSWORD_DEFAULT);
+                        $stmt = $pdo->prepare("UPDATE users SET username = ?, prefix = ?, fullname = ?, position = ?, department = ?, role = ?, phone = ?, password = ?, plain_password = ? WHERE id = ?");
+                        $stmt->execute([$username, $prefix, $fullname, $position, $department, $role, $phone, $hash, $newPassword, $userId]);
+                        $_SESSION['user_alert_msg'] = "บันทึกการแก้ไขข้อมูลและรหัสผ่านของผู้ใช้ '{$prefix}{$fullname}' เรียบร้อยแล้ว";
+                    } else {
+                        $stmt = $pdo->prepare("UPDATE users SET username = ?, prefix = ?, fullname = ?, position = ?, department = ?, role = ?, phone = ? WHERE id = ?");
+                        $stmt->execute([$username, $prefix, $fullname, $position, $department, $role, $phone, $userId]);
+                        $_SESSION['user_alert_msg'] = "บันทึกการแก้ไขข้อมูลของผู้ใช้ '{$prefix}{$fullname}' เรียบร้อยแล้ว";
+                    }
+
+                    // หากแก้ไขบัญชีของตนเองที่กำลังล็อกอินอยู่ ให้อัปเดต Session
+                    if ($userId === ($currentUser['id'] ?? 0)) {
+                        $stmtCur = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+                        $stmtCur->execute([$userId]);
+                        $_SESSION['user'] = $stmtCur->fetch();
+                    }
+
+                    $_SESSION['user_alert_type'] = 'success';
                 }
-                $alertType = 'success';
             } catch (PDOException $e) {
-                $alertMsg = "ข้อผิดพลาด: ไม่สามารถแก้ไขได้เนื่องจาก Username ซ้ำกับบัญชีอื่น";
-                $alertType = 'danger';
+                $_SESSION['user_alert_msg'] = "ข้อผิดพลาดในการบันทึกข้อมูล: " . $e->getMessage();
+                $_SESSION['user_alert_type'] = 'danger';
             }
+        } else {
+            $_SESSION['user_alert_msg'] = "กรุณาระบุชื่อ-นามสกุล และชื่อผู้ใช้งาน (Username) ให้ครบถ้วน";
+            $_SESSION['user_alert_type'] = 'danger';
         }
+        header("Location: users.php");
+        exit;
     }
 
     // 3. รีเซ็ตรหัสผ่านอย่างเดียว
@@ -85,23 +109,32 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             $hash = password_hash($newPass, PASSWORD_DEFAULT);
             $stmt = $pdo->prepare("UPDATE users SET password = ?, plain_password = ? WHERE id = ?");
             $stmt->execute([$hash, $newPass, $userId]);
-            $alertMsg = "เปลี่ยนรหัสผ่านใหม่เป็น '{$newPass}' เรียบร้อยแล้ว";
-            $alertType = 'success';
+            $_SESSION['user_alert_msg'] = "เปลี่ยนรหัสผ่านใหม่เป็น '{$newPass}' เรียบร้อยแล้ว";
+            $_SESSION['user_alert_type'] = 'success';
         }
+        header("Location: users.php");
+        exit;
     }
 
     // 4. ลบผู้ใช้งาน
     if ($action === 'delete_user') {
         $userId = (int)($_POST['user_id'] ?? 0);
-        if ($userId === $currentUser['id']) {
-            $alertMsg = "ไม่สามารถลบบัญชีผู้ใช้ที่คุณกำลังเข้าสู่ระบบอยู่ได้";
-            $alertType = 'danger';
+        if ($userId === ($currentUser['id'] ?? 0)) {
+            $_SESSION['user_alert_msg'] = "ไม่สามารถลบบัญชีผู้ใช้ที่คุณกำลังเข้าสู่ระบบอยู่ได้";
+            $_SESSION['user_alert_type'] = 'danger';
         } else {
-            $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
-            $stmt->execute([$userId]);
-            $alertMsg = "ลบผู้ใช้งานเรียบร้อยแล้ว";
-            $alertType = 'success';
+            try {
+                $stmt = $pdo->prepare("DELETE FROM users WHERE id = ?");
+                $stmt->execute([$userId]);
+                $_SESSION['user_alert_msg'] = "ลบผู้ใช้งานเรียบร้อยแล้ว";
+                $_SESSION['user_alert_type'] = 'success';
+            } catch (PDOException $e) {
+                $_SESSION['user_alert_msg'] = "ไม่สามารถลบผู้ใช้งานได้: " . $e->getMessage();
+                $_SESSION['user_alert_type'] = 'danger';
+            }
         }
+        header("Location: users.php");
+        exit;
     }
 }
 
@@ -143,9 +176,24 @@ require_once __DIR__ . '/includes/header.php';
 
 <?php if (!empty($alertMsg)): ?>
     <div class="alert alert-<?= $alertType ?> alert-dismissible fade show shadow-sm mb-4" role="alert">
-        <i class="fas fa-info-circle me-2"></i> <?= htmlspecialchars($alertMsg) ?>
+        <i class="fas fa-<?= $alertType === 'danger' ? 'exclamation-triangle' : 'check-circle' ?> me-2"></i> <?= htmlspecialchars($alertMsg) ?>
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: '<?= $alertType === "danger" ? "error" : "success" ?>',
+                title: '<?= $alertType === "danger" ? "แจ้งเตือน" : "สำเร็จ" ?>',
+                text: <?= json_encode($alertMsg, JSON_UNESCAPED_UNICODE) ?>,
+                timer: 3500,
+                showConfirmButton: false,
+                toast: true,
+                position: 'top-end'
+            });
+        }
+    });
+    </script>
 <?php endif; ?>
 
 <!-- สรุปสถิติผู้ใช้งาน -->
@@ -244,7 +292,7 @@ require_once __DIR__ . '/includes/header.php';
                 <tr class="user-row" data-name="<?= htmlspecialchars(mb_strtolower($u['fullname'] . ' ' . $u['username'])) ?>" data-role="<?= htmlspecialchars($u['role']) ?>">
                     <td class="text-muted small"><?= $i++ ?></td>
                     <td>
-                        <strong class="text-dark"><?= htmlspecialchars($u['prefix'] . ' ' . $u['fullname']) ?></strong>
+                        <strong class="text-dark"><?= htmlspecialchars(($u['prefix'] ? $u['prefix'] . ' ' : '') . $u['fullname']) ?></strong>
                         <?php if ($u['id'] === $currentUser['id']): ?>
                             <span class="badge bg-success-subtle text-success ms-1 small">คุณ</span>
                         <?php endif; ?>
@@ -274,113 +322,134 @@ require_once __DIR__ . '/includes/header.php';
                     <td><small class="text-muted"><?= htmlspecialchars($u['phone'] ?: '-') ?></small></td>
                     <td class="text-center">
                         <div class="btn-group btn-group-sm">
-                            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editUserModal<?= $u['id'] ?>" title="แก้ไขข้อมูล / เปลี่ยนรหัสผ่าน">
+                            <button type="button" 
+                                    class="btn btn-outline-primary btn-edit-user" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#editUserModal"
+                                    data-id="<?= $u['id'] ?>"
+                                    data-prefix="<?= htmlspecialchars($u['prefix'] ?? '', ENT_QUOTES) ?>"
+                                    data-fullname="<?= htmlspecialchars($u['fullname'] ?? '', ENT_QUOTES) ?>"
+                                    data-username="<?= htmlspecialchars($u['username'] ?? '', ENT_QUOTES) ?>"
+                                    data-password="<?= htmlspecialchars($dispPass, ENT_QUOTES) ?>"
+                                    data-role="<?= htmlspecialchars($u['role'] ?? 'requester', ENT_QUOTES) ?>"
+                                    data-phone="<?= htmlspecialchars($u['phone'] ?? '', ENT_QUOTES) ?>"
+                                    data-position="<?= htmlspecialchars($u['position'] ?? '', ENT_QUOTES) ?>"
+                                    data-department="<?= htmlspecialchars($u['department'] ?? '', ENT_QUOTES) ?>"
+                                    title="แก้ไขข้อมูล / เปลี่ยนรหัสผ่าน">
                                 <i class="fas fa-edit me-1"></i> แก้ไข
                             </button>
                             <?php if ($u['id'] !== $currentUser['id']): ?>
-                                <form method="POST" style="display:inline;" onsubmit="return confirm('ยืนยันต้องการลบผู้ใช้ <?= htmlspecialchars($u['fullname']) ?> หรือไม่?');">
+                                <form method="POST" action="users.php" style="display:inline;" onsubmit="return confirm('ยืนยันต้องการลบผู้ใช้ <?= htmlspecialchars($u['fullname'], ENT_QUOTES) ?> หรือไม่?');">
                                     <input type="hidden" name="action" value="delete_user">
                                     <input type="hidden" name="user_id" value="<?= $u['id'] ?>">
                                     <button type="submit" class="btn btn-outline-danger" title="ลบผู้ใช้">
-                                        <i class="fas fa-trash"></i>
+                                        <i class="fas fa-trash-alt"></i>
                                     </button>
                                 </form>
                             <?php endif; ?>
                         </div>
                     </td>
                 </tr>
-
-                <!-- Modal แก้ไขข้อมูลผู้ใช้และรหัสผ่าน -->
-                <div class="modal fade" id="editUserModal<?= $u['id'] ?>" tabindex="-1">
-                    <div class="modal-dialog">
-                        <form method="POST" class="modal-content">
-                            <input type="hidden" name="action" value="edit_user">
-                            <input type="hidden" name="user_id" value="<?= $u['id'] ?>">
-                            
-                            <div class="modal-header bg-primary text-white">
-                                <h6 class="modal-title fw-bold">
-                                    <i class="fas fa-user-pen me-2"></i>แก้ไขผู้ใช้: <?= htmlspecialchars($u['fullname']) ?>
-                                </h6>
-                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                            </div>
-
-                            <div class="modal-body">
-                                <div class="row g-2 mb-3">
-                                    <div class="col-4">
-                                        <label class="form-label small fw-semibold">คำนำหน้า</label>
-                                        <input type="text" name="prefix" class="form-control form-control-sm" value="<?= htmlspecialchars($u['prefix']) ?>" placeholder="นาย/นาง/นางสาว">
-                                    </div>
-                                    <div class="col-8">
-                                        <label class="form-label small fw-semibold">ชื่อ-นามสกุล <span class="text-danger">*</span></label>
-                                        <input type="text" name="fullname" class="form-control form-control-sm" value="<?= htmlspecialchars($u['fullname']) ?>" required>
-                                    </div>
-                                </div>
-
-                                <div class="mb-3">
-                                    <label class="form-label small fw-semibold">
-                                        ชื่อผู้ใช้สำหรับล็อกอิน (Username) <span class="text-danger">*</span>
-                                    </label>
-                                    <input type="text" name="username" class="form-control form-control-sm" value="<?= htmlspecialchars($u['username']) ?>" required>
-                                    <div class="form-text small">ชื่อจริง นามสกุล ไม่ต้องใส่คำนำหน้า</div>
-                                </div>
-
-                                <div class="mb-3 bg-warning-subtle p-2 rounded border border-warning">
-                                    <label class="form-label small fw-bold text-dark mb-1">
-                                        <i class="fas fa-key text-warning me-1"></i> รหัสผ่าน (Password)
-                                    </label>
-                                    <div class="input-group input-group-sm">
-                                        <input type="text" name="new_password" class="form-control" value="<?= htmlspecialchars($dispPass) ?>" required>
-                                    </div>
-                                    <div class="form-text small text-dark">สามารถพิมพ์รหัสผ่านใหม่เพื่อเปลี่ยนแปลงได้ทันที</div>
-                                </div>
-
-                                <div class="row g-2 mb-3">
-                                    <div class="col-6">
-                                        <label class="form-label small fw-semibold">บทบาท (Role)</label>
-                                        <select name="role" class="form-select form-select-sm">
-                                            <option value="requester" <?= ($u['role'] == 'requester') ? 'selected' : '' ?>>ผู้ขอใช้รถ (อาจารย์/บุคลากร)</option>
-                                            <option value="driver" <?= ($u['role'] == 'driver') ? 'selected' : '' ?>>พนักงานขับรถยนต์</option>
-                                            <option value="office_head" <?= ($u['role'] == 'office_head') ? 'selected' : '' ?>>รักษาการในตำแหน่งหัวหน้าสำนักงานคณบดี</option>
-                                            <option value="dean" <?= ($u['role'] == 'dean') ? 'selected' : '' ?>>คณบดี</option>
-                                            <option value="facility_head" <?= ($u['role'] == 'facility_head') ? 'selected' : '' ?>>หัวหน้างานอาคารสถานที่</option>
-                                            <option value="admin" <?= ($u['role'] == 'admin') ? 'selected' : '' ?>>ผู้ดูแลระบบ (Admin)</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-6">
-                                        <label class="form-label small fw-semibold">เบอร์โทรศัพท์</label>
-                                        <input type="text" name="phone" class="form-control form-control-sm" value="<?= htmlspecialchars($u['phone']) ?>" placeholder="08x-xxx-xxxx">
-                                    </div>
-                                </div>
-
-                                <div class="row g-2 mb-2">
-                                    <div class="col-6">
-                                        <label class="form-label small fw-semibold">ตำแหน่ง</label>
-                                        <input type="text" name="position" class="form-control form-control-sm" value="<?= htmlspecialchars($u['position']) ?>">
-                                    </div>
-                                    <div class="col-6">
-                                        <label class="form-label small fw-semibold">สาขาวิชา / หน่วยงาน</label>
-                                        <input type="text" name="department" class="form-control form-control-sm" value="<?= htmlspecialchars($u['department']) ?>">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ยกเลิก</button>
-                                <button type="submit" class="btn btn-primary btn-sm">บันทึกการแก้ไข</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
                 <?php endforeach; ?>
             </tbody>
         </table>
     </div>
 </div>
 
+<!-- Modal แก้ไขข้อมูลผู้ใช้และรหัสผ่าน (Dynamic Modal เดียว ทำงานได้เร็วและไม่กระทบ Pagination) -->
+<div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="POST" action="users.php" class="modal-content shadow">
+            <input type="hidden" name="action" value="edit_user">
+            <input type="hidden" name="user_id" id="editUserId" value="">
+            
+            <div class="modal-header bg-primary text-white">
+                <h6 class="modal-title fw-bold" id="editUserModalLabel">
+                    <i class="fas fa-user-pen me-2"></i>แก้ไขข้อมูลผู้ใช้งาน
+                </h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="row g-2 mb-3">
+                    <div class="col-4">
+                        <label class="form-label small fw-semibold">คำนำหน้า</label>
+                        <input type="text" name="prefix" id="editPrefix" class="form-control form-control-sm" list="prefixList" placeholder="เช่น ผศ.ดร.">
+                    </div>
+                    <div class="col-8">
+                        <label class="form-label small fw-semibold">ชื่อ-นามสกุล <span class="text-danger">*</span></label>
+                        <input type="text" name="fullname" id="editFullname" class="form-control form-control-sm" required>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-semibold">
+                        ชื่อผู้ใช้ล็อกอิน (Username) <span class="text-danger">*</span>
+                    </label>
+                    <input type="text" name="username" id="editUsername" class="form-control form-control-sm font-monospace" required>
+                    <div class="form-text small text-muted">ชื่อสำหรับใช้เข้าสู่ระบบ (สามารถใช้ชื่อจริง นามสกุล หรือชื่อผู้ใช้เฉพาะ)</div>
+                </div>
+
+                <div class="mb-3 bg-light p-3 rounded border">
+                    <label class="form-label small fw-bold text-dark mb-1 d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-key text-warning me-1"></i> รหัสผ่าน (Password) <span class="text-danger">*</span></span>
+                        <small class="text-muted fw-normal">แก้ไขเพื่อเปลี่ยนรหัสผ่านทันที</small>
+                    </label>
+                    <div class="input-group input-group-sm">
+                        <input type="text" name="new_password" id="editPassword" class="form-control font-monospace fw-bold" required>
+                        <button type="button" class="btn btn-outline-secondary" id="btnGenPass" title="สุ่มรหัสผ่านใหม่ 5 หลัก + #">
+                            <i class="fas fa-dice me-1"></i> สุ่มรหัส
+                        </button>
+                    </div>
+                    <div class="form-text small text-muted">ระบบจะบันทึกทั้งการแสดงผลรหัสผ่านและอัปเดตการเข้ารหัสความปลอดภัยในฐานข้อมูล</div>
+                </div>
+
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <label class="form-label small fw-semibold">บทบาท (Role) <span class="text-danger">*</span></label>
+                        <select name="role" id="editRole" class="form-select form-select-sm" required>
+                            <option value="requester">ผู้ขอใช้รถ (อาจารย์/บุคลากร)</option>
+                            <option value="driver">พนักงานขับรถยนต์</option>
+                            <option value="office_head">รักษาการในตำแหน่งหัวหน้าสำนักงานคณบดี</option>
+                            <option value="dean">คณบดี</option>
+                            <option value="facility_head">หัวหน้างานอาคารสถานที่</option>
+                            <option value="admin">ผู้ดูแลระบบ (Admin)</option>
+                        </select>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small fw-semibold">เบอร์โทรศัพท์</label>
+                        <input type="text" name="phone" id="editPhone" class="form-control form-control-sm" placeholder="เช่น 081-999-8883">
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-2">
+                    <div class="col-6">
+                        <label class="form-label small fw-semibold">ตำแหน่ง</label>
+                        <input type="text" name="position" id="editPosition" class="form-control form-control-sm" placeholder="เช่น อาจารย์ประจำสาขาวิชา">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small fw-semibold">สาขาวิชา / หน่วยงาน</label>
+                        <input type="text" name="department" id="editDepartment" class="form-control form-control-sm" placeholder="เช่น คณะวิทยาการจัดการ">
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer bg-light py-2">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i> ยกเลิก
+                </button>
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fas fa-save me-1"></i> บันทึกการแก้ไข
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Modal เพิ่มผู้ใช้งานใหม่ -->
 <div class="modal fade" id="addUserModal" tabindex="-1">
     <div class="modal-dialog">
-        <form method="POST" class="modal-content">
+        <form method="POST" action="users.php" class="modal-content shadow">
             <input type="hidden" name="action" value="add_user">
             <div class="modal-header bg-success text-white">
                 <h6 class="modal-title fw-bold"><i class="fas fa-user-plus me-2"></i>เพิ่มผู้ใช้งานใหม่</h6>
@@ -390,14 +459,7 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="row g-2 mb-3">
                     <div class="col-4">
                         <label class="form-label small fw-semibold">คำนำหน้า</label>
-                        <select name="prefix" class="form-select form-select-sm">
-                            <option value="นาย">นาย</option>
-                            <option value="นาง">นาง</option>
-                            <option value="นางสาว">นางสาว</option>
-                            <option value="อาจารย์">อาจารย์</option>
-                            <option value="ผศ.ดร.">ผศ.ดร.</option>
-                            <option value="ดร.">ดร.</option>
-                        </select>
+                        <input type="text" name="prefix" class="form-control form-control-sm" list="prefixList" placeholder="เช่น อาจารย์" value="อาจารย์">
                     </div>
                     <div class="col-8">
                         <label class="form-label small fw-semibold">ชื่อ-นามสกุล <span class="text-danger">*</span></label>
@@ -445,15 +507,96 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                 </div>
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer bg-light py-2">
                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ยกเลิก</button>
-                <button type="submit" class="btn btn-success btn-sm">บันทึกเพิ่มผู้ใช้</button>
+                <button type="submit" class="btn btn-success btn-sm">
+                    <i class="fas fa-plus me-1"></i> บันทึกเพิ่มผู้ใช้
+                </button>
             </div>
         </form>
     </div>
 </div>
 
+<datalist id="prefixList">
+    <option value="นาย">
+    <option value="นาง">
+    <option value="นางสาว">
+    <option value="อาจารย์">
+    <option value="อาจารย์ ดร.">
+    <option value="ดร.">
+    <option value="ผศ.">
+    <option value="ผศ.ดร.">
+    <option value="รศ.">
+    <option value="รศ.ดร.">
+</datalist>
+
 <script>
+    // ฟังก์ชันกำหนดข้อมูลลงใน Modal แก้ไขผู้ใช้งาน
+    function populateEditModal(btn) {
+        if (!btn) return;
+        const id = btn.getAttribute('data-id') || '';
+        const prefix = btn.getAttribute('data-prefix') || '';
+        const fullname = btn.getAttribute('data-fullname') || '';
+        const username = btn.getAttribute('data-username') || '';
+        const password = btn.getAttribute('data-password') || '';
+        const role = btn.getAttribute('data-role') || 'requester';
+        const phone = btn.getAttribute('data-phone') || '';
+        const position = btn.getAttribute('data-position') || '';
+        const department = btn.getAttribute('data-department') || '';
+
+        const editUserId = document.getElementById('editUserId');
+        const editPrefix = document.getElementById('editPrefix');
+        const editFullname = document.getElementById('editFullname');
+        const editUsername = document.getElementById('editUsername');
+        const editPassword = document.getElementById('editPassword');
+        const editRole = document.getElementById('editRole');
+        const editPhone = document.getElementById('editPhone');
+        const editPosition = document.getElementById('editPosition');
+        const editDepartment = document.getElementById('editDepartment');
+        const modalTitle = document.getElementById('editUserModalLabel');
+
+        if (editUserId) editUserId.value = id;
+        if (editPrefix) editPrefix.value = prefix;
+        if (editFullname) editFullname.value = fullname;
+        if (editUsername) editUsername.value = username;
+        if (editPassword) editPassword.value = password;
+        if (editRole) editRole.value = role;
+        if (editPhone) editPhone.value = phone;
+        if (editPosition) editPosition.value = position;
+        if (editDepartment) editDepartment.value = department;
+
+        if (modalTitle) {
+            modalTitle.innerHTML = '<i class="fas fa-user-pen me-2"></i>แก้ไขผู้ใช้: ' + (prefix ? prefix + ' ' : '') + fullname;
+        }
+    }
+
+    // รองรับการคลิกปุ่มแก้ไขทั้งผ่าน Bootstrap event และ click listener (ป้องกันปัญหา pagination/sorting)
+    const editModal = document.getElementById('editUserModal');
+    if (editModal) {
+        editModal.addEventListener('show.bs.modal', function(event) {
+            if (event.relatedTarget) {
+                populateEditModal(event.relatedTarget);
+            }
+        });
+    }
+
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.btn-edit-user');
+        if (btn) {
+            populateEditModal(btn);
+        }
+    });
+
+    // ปุ่มสุ่มรหัสผ่าน
+    const btnGenPass = document.getElementById('btnGenPass');
+    if (btnGenPass) {
+        btnGenPass.addEventListener('click', function() {
+            const randomNum = Math.floor(10000 + Math.random() * 90000);
+            const passInput = document.getElementById('editPassword');
+            if (passInput) passInput.value = randomNum + '#';
+        });
+    }
+
     // คัดลอกชื่อไปเป็น Username อัตโนมัติใน Modal เพิ่มผู้ใช้
     const newFullname = document.getElementById('newFullname');
     const newUsername = document.getElementById('newUsername');
@@ -472,20 +615,23 @@ require_once __DIR__ . '/includes/header.php';
     document.querySelectorAll('.single-eye-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             const row = this.closest('tr');
+            if (!row) return;
             const masked = row.querySelector('.masked-pass');
             const unmasked = row.querySelector('.unmasked-pass');
             const icon = this.querySelector('i');
             
-            if (unmasked.classList.contains('d-none')) {
-                unmasked.classList.remove('d-none');
-                masked.classList.add('d-none');
-                icon.classList.remove('fa-eye-slash');
-                icon.classList.add('fa-eye');
-            } else {
-                unmasked.classList.add('d-none');
-                masked.classList.remove('d-none');
-                icon.classList.remove('fa-eye');
-                icon.classList.add('fa-eye-slash');
+            if (unmasked && masked && icon) {
+                if (unmasked.classList.contains('d-none')) {
+                    unmasked.classList.remove('d-none');
+                    masked.classList.add('d-none');
+                    icon.classList.remove('fa-eye-slash');
+                    icon.classList.add('fa-eye');
+                } else {
+                    unmasked.classList.add('d-none');
+                    masked.classList.remove('d-none');
+                    icon.classList.remove('fa-eye');
+                    icon.classList.add('fa-eye-slash');
+                }
             }
         });
     });
@@ -500,25 +646,29 @@ require_once __DIR__ . '/includes/header.php';
             document.querySelectorAll('.pass-display').forEach(display => {
                 const masked = display.querySelector('.masked-pass');
                 const unmasked = display.querySelector('.unmasked-pass');
-                const eyeIcon = display.closest('td').querySelector('.single-eye-btn i');
+                const eyeIcon = display.closest('td') ? display.closest('td').querySelector('.single-eye-btn i') : null;
                 
-                if (allVisible) {
-                    unmasked.classList.remove('d-none');
-                    masked.classList.add('d-none');
-                    if (eyeIcon) {
-                        eyeIcon.classList.remove('fa-eye-slash');
-                        eyeIcon.classList.add('fa-eye');
-                    }
-                } else {
-                    unmasked.classList.add('d-none');
-                    masked.classList.remove('d-none');
-                    if (eyeIcon) {
-                        eyeIcon.classList.remove('fa-eye');
-                        eyeIcon.classList.add('fa-eye-slash');
+                if (masked && unmasked) {
+                    if (allVisible) {
+                        unmasked.classList.remove('d-none');
+                        masked.classList.add('d-none');
+                        if (eyeIcon) {
+                            eyeIcon.classList.remove('fa-eye-slash');
+                            eyeIcon.classList.add('fa-eye');
+                        }
+                    } else {
+                        unmasked.classList.add('d-none');
+                        masked.classList.remove('d-none');
+                        if (eyeIcon) {
+                            eyeIcon.classList.remove('fa-eye');
+                            eyeIcon.classList.add('fa-eye-slash');
+                        }
                     }
                 }
             });
-            toggleAllText.textContent = allVisible ? 'ซ่อนรหัสผ่านทั้งหมด' : 'เปิดดูรหัสผ่านทั้งหมด';
+            if (toggleAllText) {
+                toggleAllText.textContent = allVisible ? 'ซ่อนรหัสผ่านทั้งหมด' : 'เปิดดูรหัสผ่านทั้งหมด';
+            }
             toggleAllPassBtn.classList.toggle('btn-outline-secondary', !allVisible);
             toggleAllPassBtn.classList.toggle('btn-warning', allVisible);
         });
@@ -528,15 +678,19 @@ require_once __DIR__ . '/includes/header.php';
     document.querySelectorAll('.copy-pass-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             const pass = this.getAttribute('data-pass');
-            navigator.clipboard.writeText(pass).then(() => {
-                const icon = this.querySelector('i');
-                icon.classList.remove('fa-copy');
-                icon.classList.add('fa-check', 'text-success');
-                setTimeout(() => {
-                    icon.classList.remove('fa-check', 'text-success');
-                    icon.classList.add('fa-copy');
-                }, 1500);
-            });
+            if (pass) {
+                navigator.clipboard.writeText(pass).then(() => {
+                    const icon = this.querySelector('i');
+                    if (icon) {
+                        icon.classList.remove('fa-copy');
+                        icon.classList.add('fa-check', 'text-success');
+                        setTimeout(() => {
+                            icon.classList.remove('fa-check', 'text-success');
+                            icon.classList.add('fa-copy');
+                        }, 1500);
+                    }
+                });
+            }
         });
     });
 
@@ -547,8 +701,8 @@ require_once __DIR__ . '/includes/header.php';
     const visibleCount = document.getElementById('visibleUserCount');
 
     function filterUsers() {
-        const query = (searchInput.value || '').trim().toLowerCase();
-        const selectedRole = roleFilter.value;
+        const query = (searchInput ? searchInput.value : '').trim().toLowerCase();
+        const selectedRole = roleFilter ? roleFilter.value : '';
         let count = 0;
 
         rows.forEach(row => {
@@ -573,4 +727,3 @@ require_once __DIR__ . '/includes/header.php';
 </script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
-

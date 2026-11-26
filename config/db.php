@@ -639,10 +639,7 @@ if ($userCount < 50) {
             $checkStmt->execute([$uUsername]);
             $existingId = $checkStmt->fetchColumn();
 
-            if ($existingId) {
-                $upd = $pdo->prepare("UPDATE users SET plain_password = ?, prefix = ?, fullname = ?, position = ?, department = ?, role = ?, phone = COALESCE(phone, ?) WHERE id = ?");
-                $upd->execute([$uPlainPass, $uPrefix, $uFullname, $uPos, $uDept, $uRole, $uPhone, $existingId]);
-            } else {
+            if (!$existingId) {
                 $ins = $pdo->prepare("INSERT INTO users (username, password, plain_password, prefix, fullname, position, department, role, phone) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 $ins->execute([$uUsername, password_hash($uPlainPass, PASSWORD_DEFAULT), $uPlainPass, $uPrefix, $uFullname, $uPos, $uDept, $uRole, $uPhone]);
             }
