@@ -386,10 +386,10 @@ $emblemBase64 = file_exists($emblemPath) ? 'data:image/png;base64,' . base64_enc
         <div style="text-align: center; width: 250px; font-size: 13.2pt; line-height: 1.18;">
             <div>ขอแสดงความนับถือ</div>
             <div style="margin-top: 5px;">
-                ลงชื่อ <span class="dots-inline" style="min-width: 130px;"><?= htmlspecialchars($b['requester_name']) ?></span>
+                ลงชื่อ <span class="dots-inline" style="min-width: 130px;">&nbsp;</span>
             </div>
             <div style="margin-top: 1px;">
-                (<span class="dots-inline" style="min-width: 130px;"><?= htmlspecialchars($b['requester_name']) ?></span>)
+                (<?= !empty($b['requester_name']) ? htmlspecialchars($b['requester_name']) : '<span class="dots-inline" style="min-width: 130px;">&nbsp;</span>' ?>)
             </div>
             <div style="margin-top: 1px;">
                 ตำแหน่ง <span class="dots-inline" style="min-width: 125px;"><?= htmlspecialchars($b['requester_position']) ?></span>
@@ -405,10 +405,10 @@ $emblemBase64 = file_exists($emblemPath) ? 'data:image/png;base64,' . base64_enc
         <div class="controller-box" style="font-size: 13.2pt; line-height: 1.18;">
             <div class="fw-bold" style="font-size: 13.2pt; margin-bottom: 1px;">ผู้ควบคุมรถ</div>
             <div style="margin-top: 5px;">
-                ลงชื่อ <span class="dots-inline" style="min-width: 120px;"><?= htmlspecialchars($b['controller_name'] ?? '') ?></span>
+                ลงชื่อ <span class="dots-inline" style="min-width: 120px;">&nbsp;</span>
             </div>
             <div style="margin-top: 1px;">
-                (<span class="dots-inline" style="min-width: 120px;"><?= htmlspecialchars($b['controller_name'] ?? '') ?></span>)
+                (<?= !empty($b['controller_name']) ? htmlspecialchars($b['controller_name']) : '<span class="dots-inline" style="min-width: 120px;">&nbsp;</span>' ?>)
             </div>
             <div style="margin-top: 1px;">
                 <span class="dots-inline" style="min-width: 25px;"><?= $createdParts['d'] ?></span> /
@@ -440,7 +440,7 @@ $emblemBase64 = file_exists($emblemPath) ? 'data:image/png;base64,' . base64_enc
                 <span class="dots-fill" style="min-width: 140px;"><?= htmlspecialchars($app['facility_other'] ?? '') ?></span>
             </div>
             <div style="margin-top: 5px; text-align: center; line-height: 1.2;">
-                ลงชื่อ <span class="dots-inline" style="min-width: 130px;"><?= (!empty($app['facility_status'])) ? htmlspecialchars($app['facility_signer'] ?? 'นายเอกสิทธิ์ คงพิทักษ์') : '' ?></span><br>
+                ลงชื่อ <span class="dots-inline" style="min-width: 130px;">&nbsp;</span><br>
                 (<?= (!empty($app['facility_status'])) ? htmlspecialchars($app['facility_signer'] ?? 'นายเอกสิทธิ์ คงพิทักษ์') : 'นายเอกสิทธิ์ คงพิทักษ์' ?>)<br>
                 หัวหน้างานอาคารสถานที่<br>
                 <span style="display: inline-block; margin-top: 1px;">
@@ -469,7 +469,7 @@ $emblemBase64 = file_exists($emblemPath) ? 'data:image/png;base64,' . base64_enc
                 <span class="dots-fill" style="min-width: 160px;"><?= htmlspecialchars($app['office_other'] ?? '') ?></span>
             </div>
             <div style="margin-top: 5px; text-align: center; line-height: 1.2;">
-                ลงชื่อ <span class="dots-inline" style="min-width: 130px;"><?= (!empty($app['office_status'])) ? htmlspecialchars($app['office_signer'] ?? 'นางสาววิภาดา ทองปิ่น') : '' ?></span><br>
+                ลงชื่อ <span class="dots-inline" style="min-width: 130px;">&nbsp;</span><br>
                 (<?= (!empty($app['office_status'])) ? htmlspecialchars($app['office_signer'] ?? 'นางสาววิภาดา ทองปิ่น') : 'นางสาววิภาดา ทองปิ่น' ?>)<br>
                 รักษาการในตำแหน่งหัวหน้าสำนักงานคณบดี<br>
                 <span style="display: inline-block; margin-top: 1px;">
@@ -496,7 +496,7 @@ $emblemBase64 = file_exists($emblemPath) ? 'data:image/png;base64,' . base64_enc
             <span class="dots-fill" style="min-width: 110px;"><?= htmlspecialchars($app['dean_other'] ?? '') ?></span>
         </div>
         <div style="margin-top: 5px; text-align: center; line-height: 1.2;">
-            ลงชื่อ <span class="dots-inline" style="min-width: 150px;"><?= (!empty($app['dean_status'])) ? htmlspecialchars($app['dean_signer'] ?? 'อาจารย์ ดร.สุมาลี กรดกางกั้น') : '' ?></span><br>
+            ลงชื่อ <span class="dots-inline" style="min-width: 150px;">&nbsp;</span><br>
             (<?= (!empty($app['dean_status'])) ? htmlspecialchars($app['dean_signer'] ?? 'อาจารย์ ดร.สุมาลี กรดกางกั้น') : 'อาจารย์ ดร.สุมาลี กรดกางกั้น' ?>)<br>
             คณบดีคณะวิทยาการจัดการ<br>
             <span style="display: inline-block; margin-top: 1px;">
@@ -526,7 +526,7 @@ $emblemBase64 = file_exists($emblemPath) ? 'data:image/png;base64,' . base64_enc
 
             <!-- ส่วนลงชื่อพนักงานขับรถ -->
             <div style="text-align: center; width: 240px; line-height: 1.2;">
-                ลงชื่อ <span class="dots-inline" style="min-width: 130px;"><?= (!empty($app['driver_ack_status'])) ? htmlspecialchars($app['driver_signer'] ?? 'นายธเนศ อินเอิบ') : '' ?></span><br>
+                ลงชื่อ <span class="dots-inline" style="min-width: 130px;">&nbsp;</span><br>
                 (<?= (!empty($app['driver_ack_status'])) ? htmlspecialchars($app['driver_signer'] ?? 'นายธเนศ อินเอิบ') : 'นายธเนศ อินเอิบ' ?>)<br>
                 พนักงานขับรถยนต์<br>
                 <span style="display: inline-block; margin-top: 1px;">
