@@ -419,6 +419,13 @@ require_once __DIR__ . '/includes/header.php';
                                         <a href="print_form.php?id=<?= $b['id'] ?>" target="_blank" class="btn btn-outline-secondary btn-sm" title="พิมพ์ A4">
                                             <i class="fas fa-print"></i>
                                         </a>
+                                        <form method="POST" onsubmit="return confirm('คุณแน่ใจว่าต้องการลบคำขอนี้ถาวร?\n\nเลขที่เอกสาร: <?= htmlspecialchars($b['doc_no'] ?? '-') ?>');" style="display:inline;">
+                                            <input type="hidden" name="action" value="delete_booking">
+                                            <input type="hidden" name="booking_id" value="<?= $b['id'] ?>">
+                                            <button type="submit" class="btn btn-outline-danger btn-sm" title="ลบคำขอนี้ถาวร">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
+                                        </form>
 
                                         <!-- ปุ่มสลับสถานะด่วนสำหรับแอดมิน -->
                                         <div class="dropdown">

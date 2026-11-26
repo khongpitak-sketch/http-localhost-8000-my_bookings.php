@@ -16,6 +16,27 @@ if (isset($_GET['cancel_id'])) {
     exit;
 }
 
+// ลบคำขอถาวร (เฉพาะ Admin เท่านั้น)
+if (isset($_GET['delete_id']) || isset($_POST['delete_id'])) {
+    if (!$isAdmin) {
+        header("Location: login.php?redirect=" . urlencode($_SERVER['REQUEST_URI'] ?? 'my_bookings.php'));
+        exit;
+    }
+    $deleteId = (int)($_POST['delete_id'] ?? $_GET['delete_id']);
+    if ($deleteId > 0) {
+        try {
+            $pdo->prepare("DELETE FROM approvals WHERE booking_id = ?")->execute([$deleteId]);
+            $pdo->prepare("DELETE FROM bookings WHERE id = ?")->execute([$deleteId]);
+            $redirectUrl = 'my_bookings.php?deleted=1' . (!empty($searchQuery) ? '&q=' . urlencode($searchQuery) : '') . ($filter === 'mine' ? '&filter=mine' : '');
+            header("Location: " . $redirectUrl);
+            exit;
+        } catch (Exception $e) {
+            header("Location: my_bookings.php?error=" . urlencode($e->getMessage()));
+            exit;
+        }
+    }
+}
+
 $searchQuery = trim($_GET['q'] ?? '');
 
 // ตัวกรองรายการ (ทั้งหมด หรือ เฉพาะคำขอของฉัน)
@@ -79,6 +100,25 @@ require_once __DIR__ . '/includes/header.php';
         </a>
     </div>
 </div>
+
+<?php if (isset($_GET['deleted'])): ?>
+    <div class="alert alert-success alert-dismissible fade show mb-3 shadow-sm" role="alert">
+        <i class="fas fa-check-circle me-1"></i> ลบคำขอใช้รถยนต์เรียบร้อยแล้ว
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+<?php endif; ?>
+<?php if (isset($_GET['cancelled'])): ?>
+    <div class="alert alert-warning alert-dismissible fade show mb-3 shadow-sm" role="alert">
+        <i class="fas fa-exclamation-triangle me-1"></i> ยกเลิกคำขอใช้รถยนต์เรียบร้อยแล้ว
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+<?php endif; ?>
+<?php if (isset($_GET['error'])): ?>
+    <div class="alert alert-danger alert-dismissible fade show mb-3 shadow-sm" role="alert">
+        <i class="fas fa-times-circle me-1"></i> <?= htmlspecialchars($_GET['error'] === 'unauthorized' ? 'คุณไม่มีสิทธิ์ในการดำเนินการนี้ (ต้องเป็น Admin)' : $_GET['error']) ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+<?php endif; ?>
 
 <?php if ($isLoggedIn): ?>
 <!-- แถบเลือกดูคำขอ -->
@@ -199,11 +239,17 @@ require_once __DIR__ . '/includes/header.php';
                                 <a href="print_form.php?id=<?= $b['id'] ?>" target="_blank" class="btn btn-outline-secondary" title="พิมพ์แบบฟอร์มราชการ">
                                     <i class="fas fa-print"></i>
                                 </a>
-                                <?php if ($isAdmin && strpos($b['status'], 'pending_') === 0): ?>
-                                    <a href="?cancel_id=<?= $b['id'] ?>" 
-                                       onclick="return confirm('คุณแน่ใจหรือไม่ว่าต้องการยกเลิกคำขอนี้?')" 
-                                       class="btn btn-outline-danger" title="ยกเลิกคำขอ (Admin)">
-                                        <i class="fas fa-times"></i>
+                                <?php if ($isAdmin): ?>
+                                    <a href="?delete_id=<?= $b['id'] ?><?= !empty($searchQuery) ? '&q=' . urlencode($searchQuery) : '' ?><?= ($filter === 'mine') ? '&filter=mine' : '' ?>" 
+                                       onclick="return confirm('คุณแน่ใจหรือไม่ว่าต้องการลบคำขอนี้ถาวร?\n\nเลขที่เอกสาร: <?= htmlspecialchars($b['doc_no'] ?? '-') ?>\nภารกิจ: <?= htmlspecialchars($b['purpose'] ?? '-') ?>\n\n(เมื่อลบแล้วจะไม่สามารถกู้คืนได้)')" 
+                                       class="btn btn-outline-danger" title="ลบคำขอใช้รถยนต์ (Admin)">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </a>
+                                <?php else: ?>
+                                    <a href="login.php?redirect=<?= urlencode('my_bookings.php') ?>" 
+                                       onclick="return confirm('เมนูลบคำขอสงวนสิทธิ์เฉพาะผู้ดูแลระบบ (Admin) เท่านั้น\n\nคุณต้องการไปหน้าเข้าสู่ระบบ Admin เพื่อลบคำขอนี้หรือไม่?')" 
+                                       class="btn btn-outline-danger" title="ลบคำขอ (สำหรับ Admin)">
+                                        <i class="fas fa-trash-alt"></i>
                                     </a>
                                 <?php endif; ?>
                             </div>
