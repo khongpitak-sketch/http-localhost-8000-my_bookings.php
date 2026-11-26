@@ -21,7 +21,7 @@ if ($bookingId > 0) {
 if (!$b) {
     $b = [
         'id' => 0,
-        'doc_no' => 'ควจ. ...../' . (date('Y') + 543),
+        'doc_no' => 'วจก. ...../2570',
         'created_date' => date('Y-m-d'),
         'requester_name' => '',
         'requester_position' => '',

@@ -153,8 +153,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     $validUserId = $uCheck->fetchColumn() ?: null;
                 }
 
-                // รันเลขที่เอกสาร เช่น ควจ. 001/2569 โดยค้นหาเลขสูงสุดของปี พ.ศ. ปัจจุบัน ป้องกันเลขซ้ำ
-                $currentYearThai = date('Y') + 543;
+                // รันเลขที่เอกสาร เช่น วจก. 001/2570 โดยค้นหาเลขสูงสุดของปีงบประมาณ พ.ศ. ปัจจุบัน ป้องกันเลขซ้ำ
+                $month = (int)date('n');
+                $currentYearThai = (date('Y') + 543) + ($month >= 10 ? 1 : 0);
+                if ($currentYearThai < 2570) {
+                    $currentYearThai = 2570;
+                }
                 $stmtDocs = $pdo->prepare("SELECT doc_no FROM bookings WHERE doc_no LIKE ?");
                 $stmtDocs->execute(["%/{$currentYearThai}"]);
                 $existingDocs = $stmtDocs->fetchAll(PDO::FETCH_COLUMN);
@@ -168,7 +172,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                     }
                 }
                 $nextDocNum = $maxDocNum + 1;
-                $docNo = sprintf("ควจ. %03d/%d", $nextDocNum, $currentYearThai);
+                $docNo = sprintf("วจก. %03d/%d", $nextDocNum, $currentYearThai);
 
                 try {
                     $pdo->beginTransaction();

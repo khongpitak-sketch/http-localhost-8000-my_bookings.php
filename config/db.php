@@ -652,6 +652,11 @@ try {
     $pdo->exec("DELETE FROM users WHERE username IN ('user1', 'user2', 'facility_head', 'office_head', 'driver1')");
 } catch (Exception $e) {}
 
+// อัปเดตรูปแบบเลขที่เอกสารจาก ควจ. / 2569 เป็น วจก. / 2570 ตามปีงบประมาณของคณะ
+try {
+    $pdo->exec("UPDATE bookings SET doc_no = REPLACE(REPLACE(REPLACE(doc_no, 'ควจ.', 'วจก.'), 'ควจ', 'วจก.'), '/2569', '/2570') WHERE doc_no LIKE '%ควจ%' OR doc_no LIKE '%/2569%'");
+} catch (Exception $e) {}
+
 // รถยนต์เริ่มต้นของคณะ (หากยังไม่มี)
 $vehCount = $pdo->query("SELECT COUNT(*) FROM vehicles")->fetchColumn();
 if ($vehCount == 0) {
