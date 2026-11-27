@@ -657,6 +657,11 @@ try {
     $pdo->exec("UPDATE bookings SET doc_no = REPLACE(REPLACE(REPLACE(doc_no, 'ควจ.', 'วจก.'), 'ควจ', 'วจก.'), '/2569', '/2570') WHERE doc_no LIKE '%ควจ%' OR doc_no LIKE '%/2569%'");
 } catch (Exception $e) {}
 
+// ปรับเส้นทางเริ่มต้น (จากเส้นทาง) ให้กระชับเหลือเฉพาะ "คณะวิทยาการจัดการ"
+try {
+    $pdo->exec("UPDATE bookings SET route_from = REPLACE(route_from, 'คณะวิทยาการจัดการ มหาวิทยาลัยนราธิวาสราชนครินทร์', 'คณะวิทยาการจัดการ') WHERE route_from LIKE '%มหาวิทยาลัยนราธิวาสราชนครินทร์%'");
+} catch (Exception $e) {}
+
 // รถยนต์เริ่มต้นของคณะ (หากยังไม่มี)
 $vehCount = $pdo->query("SELECT COUNT(*) FROM vehicles")->fetchColumn();
 if ($vehCount == 0) {

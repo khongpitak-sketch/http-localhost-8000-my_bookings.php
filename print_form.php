@@ -332,7 +332,8 @@ $emblemBase64 = file_exists($emblemPath) ? 'data:image/png;base64,' . base64_enc
     </div>
 
     <?php
-    $rfLen = mb_strlen($b['route_from']);
+    $displayRouteFrom = str_replace('คณะวิทยาการจัดการ มหาวิทยาลัยนราธิวาสราชนครินทร์', 'คณะวิทยาการจัดการ', $b['route_from']);
+    $rfLen = mb_strlen($displayRouteFrom);
     $rfStyle = ($rfLen > 40) ? 'font-size: 12.5pt; letter-spacing: -0.2px;' : (($rfLen > 30) ? 'font-size: 13pt;' : '');
     $rtLen = mb_strlen($b['route_to']);
     $rtStyle = ($rtLen > 35) ? 'font-size: 12.5pt;' : '';
@@ -341,7 +342,7 @@ $emblemBase64 = file_exists($emblemPath) ? 'data:image/png;base64,' . base64_enc
         <span class="nowrap">เพื่อใช้ในงาน&nbsp;</span>
         <span class="dots-inline" style="min-width: 70px; flex-shrink: 0;"><?= htmlspecialchars($b['purpose']) ?></span>
         <span class="nowrap">&nbsp;จากเส้นทาง&nbsp;</span>
-        <span class="dots-fill" style="flex: 1; min-width: 140px; <?= $rfStyle ?>"><?= htmlspecialchars($b['route_from']) ?></span>
+        <span class="dots-fill" style="flex: 1; min-width: 140px; <?= $rfStyle ?>"><?= htmlspecialchars($displayRouteFrom) ?></span>
         <span class="nowrap">&nbsp;ถึง&nbsp;</span>
         <span class="dots-inline" style="min-width: 70px; flex-shrink: 0; <?= $rtStyle ?>"><?= htmlspecialchars($b['route_to']) ?></span>
     </div>

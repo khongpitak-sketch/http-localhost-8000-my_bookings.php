@@ -417,7 +417,7 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">จากเส้นทาง (จุดเริ่มต้น) <span class="text-danger">*</span></label>
                             <input type="text" name="route_from" class="form-control" 
-                                   value="<?= htmlspecialchars($_POST['route_from'] ?? 'คณะวิทยาการจัดการ มหาวิทยาลัยนราธิวาสราชนครินทร์') ?>" required>
+                                   value="<?= htmlspecialchars($_POST['route_from'] ?? 'คณะวิทยาการจัดการ') ?>" required>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">ถึง (ปลายทาง) <span class="text-danger">*</span></label>
